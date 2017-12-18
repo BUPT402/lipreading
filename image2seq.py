@@ -3,7 +3,7 @@ from tensorflow.python.layers import core as core_layers
 import tensorflow as tf
 
 sess = tf.InteractiveSession()
-
+callback = tf.keras.callbacks
 
 class Image2Seq:
     def __init__(self, depth, img_height, img_width, word2idx,  beam_width, keep_prob, img_ch=3,
@@ -172,6 +172,7 @@ class Image2Seq:
     def partial_fit(self, images, captions, lengths):
         _, loss = self.sess.run([self.train_op, self.loss],
                                 {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
+
         return loss
 
     def infer(self, image, idx2word):
