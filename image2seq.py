@@ -6,7 +6,7 @@ sess = tf.InteractiveSession()
 
 
 class Image2Seq:
-    def __init__(self, depth, img_height, img_width, word2idx,  beam_width, keep_prob,img_ch=3,
+    def __init__(self, depth, img_height, img_width, word2idx,  beam_width, keep_prob, img_ch=3,
                  embedding_dim=512,
                  hidden_size=512,
                  batch_size=30,
