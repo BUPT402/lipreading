@@ -60,22 +60,24 @@ predictor = dlib.shape_predictor('/home/zyq/PycharmProjects/'
 class Vocabulary(object):
     '''vocabulary wrapper'''
 
-    def __init__(self, label_dir):
-        self.id_to_word, self.word_to_id = self._extract_charater_vocab(label_dir)
+    def __init__(self, label_dirs):
+        self.id_to_word, self.word_to_id = self._extract_charater_vocab(label_dirs)
 
-    def _extract_charater_vocab(self, label_dir):
+    def _extract_charater_vocab(self, label_dirs):
         '''get label_to_text'''
-        label_list = glob.glob(os.path.join(label_dir, '*align'))
-        label_list = sorted(label_list)
         word_counts = Counter()
-        for i in range(len(label_list)):
-            label_path = label_list[i]
-            f = open(label_path, 'r', encoding='utf-8')
-            lines = f.readlines()
-            for line in lines[1:-1]:
-                chara = line.split(' ')[-1]
-                word_counts.update(chara)
-            f.close()
+        for label_dir in label_dirs:
+            label_list = glob.glob(os.path.join(label_dir, '*align'))
+            label_list = sorted(label_list)
+            for i in range(len(label_list)):
+                label_path = label_list[i]
+                f = open(label_path, 'r', encoding='utf-8')
+                lines = f.readlines()
+                for line in lines[1:-1]:
+                    chara = line.split(' ')[-1]
+                    word_counts.update(chara)
+                f.close()
+
         print('Total words:', len(word_counts))
 
         word_counts = [x for x in word_counts.items()]
@@ -368,7 +370,7 @@ def main(unused_argv):
     assert _is_valid_num_shards(FLAGS.val_shards), (
         "Please make the FLAGS.num_threads commensurate with FLAGS.val_shards")
 
-    vocab = Vocabulary(FLAGS.train_label_dir)
+    vocab = Vocabulary([FLAGS.train_label_dir, FLAGS.val_label_dir])
 
     # process_dataset('train', FLAGS.train_video_dir, FLAGS.train_label_dir, vocab, FLAGS.train_shards)
     process_dataset('val', FLAGS.val_video_dir, FLAGS.val_label_dir, vocab, FLAGS.val_shards)
