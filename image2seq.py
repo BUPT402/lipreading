@@ -47,7 +47,7 @@ class Image2Seq:
             # self.caption = tf.placeholder(tf.int32, [None, 25, 773])
             # self.caption_mask = tf.placeholder(tf.int32, [None, 25])
             self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
-            self.Y = tf.placeholder(tf.float32, [None, None])
+            self.Y = tf.placeholder(tf.int32, [None, 70])
             self.Y_seq_len = tf.placeholder(tf.int32, [None])
             self.train_flag = tf.placeholder(tf.bool)
 
@@ -102,13 +102,16 @@ class Image2Seq:
         # cell an instance of RNNcell atte_layer_size代表attention layer输出层的大小，if None表示无attention机制，直接将encode输出输入到decode中
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
             cell=tf.contrib.rnn.MultiRNNCell([self.lstm_cell() for _ in range(self.n_layers)]),
-            atten_mechanism=atten_mechanism, atten_layer_size=self.hidden_size)
+            attention_mechanism=atten_mechanism, attention_layer_size=self.hidden_size)
 
     def add_decoder_for_training(self):
         self.add_attention_for_training()
+        # print(len(self.word2idx))
         decoder_embedding = tf.get_variable('decode_embedding', [len(self.word2idx), self.embedding_dim],
-                                            tf.float32, tf.random_uniform_initializer(-1.0, 1.0))
+                                            dtype=tf.float32)
+        print(decoder_embedding)
         # inputs为实际的label, sequence_length为当前batch中每个序列的长度 ，timemajor=false时,[batch_size,sequence_length,embedding_size]
+        print("-------",self.processed_decoder_input()[0])
         training_helper = tf.contrib.seq2seq.ScheduledEmbeddingTrainingHelper(
             inputs=tf.nn.embedding_lookup(decoder_embedding, self.processed_decoder_input()),
             sequence_length=self.Y_seq_len - 1,
@@ -125,7 +128,7 @@ class Image2Seq:
         # final_sequence_lengths)
         training_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder=training_decoder,
                                                                           impute_finished=True,
-                                                                          maximum_interations=tf.reduce_max(
+                                                                          maximum_iterations=tf.reduce_max(
                                                                               self.Y_seq_len - 1))
         # 训练结果
         self.training_logits = training_decoder_output.rnn_output
@@ -182,6 +185,7 @@ class Image2Seq:
         print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
 
     def processed_decoder_input(self):
+        print("^",self.Y)
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char
 
     def processed_decoder_output(self):
