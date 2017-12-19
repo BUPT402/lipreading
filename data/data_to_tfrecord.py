@@ -149,7 +149,7 @@ def get_frames_mouth(video_path):
             if i < 48:
                 continue
             mouth_points.append((part.x, part.y))
-        width = (right - left) // 2
+        # width = (right - left) // 2
         np_mouth_points = np.array(mouth_points)
         mouth_centroid = np.mean(np_mouth_points[:, -2:], axis=0).astype(int)
         # mouth_crop_image = frame[mouth_centroid[1] - width:mouth_centroid[1] + width,
@@ -187,6 +187,9 @@ def _to_sequence_example(video_path, label_path, vocab):
 
     labels = get_label(vocab, label_path)
     label_len = len(labels)
+
+    padding = np.zeros((70 - label_len, ), dtype=np.int32)
+    labels = np.concatenate((labels, padding), axis=0)
 
     example = tf.train.SequenceExample(
         context=tf.train.Features(feature={
@@ -314,7 +317,7 @@ def main(unused_argv):
 
     vocab = Vocabulary([FLAGS.train_label_dir])
 
-    process_dataset('t', FLAGS.train_video_dir, FLAGS.train_label_dir, vocab, FLAGS.train_shards)
+    process_dataset('train', FLAGS.train_video_dir, FLAGS.train_label_dir, vocab, FLAGS.train_shards)
     # process_dataset('v', FLAGS.val_video_dir, FLAGS.val_label_dir, vocab, FLAGS.val_shards)
 
 if __name__ == '__main__':
