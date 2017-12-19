@@ -11,6 +11,8 @@ from collections import Counter
 
 
 FLAGS = tf.app.flags.FLAGS
+FLAGS = tf.app.flags.FLAGS
+
 tf.flags.DEFINE_string('word_counts_output_file',
                        '/home/zyq/video_pipline_data/test/word_counts.txt',
                        'Output vocabulary file of word counts.')
@@ -25,7 +27,9 @@ class Vocabulary(object):
         '''get label_to_text'''
         word_counts = Counter()
         for label_dir in label_dirs:
+            print(label_dir)
             label_list = glob.glob(os.path.join(label_dir, '*align'))
+            print(label_list)
             label_list = sorted(label_list)
             for i in range(len(label_list)):
                 label_path = label_list[i]
@@ -40,8 +44,8 @@ class Vocabulary(object):
 
         word_counts = [x for x in word_counts.items()]
         word_counts.sort(key=lambda x: x[1], reverse=True)
-        with open(FLAGS.word_counts_output_file, 'w', encoding='utf-8') as f:
-            f.write("\n".join(["%s %d" % (w, c) for w, c in word_counts]))
+        # with open(FLAGS.word_counts_output_file, 'w', encoding='utf-8') as f:
+        #     f.write("\n".join(["%s %d" % (w, c) for w, c in word_counts]))
 
         words = [x[0] for x in word_counts]
         special_words = ['<PAD>', '<EOS>', '<BOS>', '<unkonw>']
@@ -63,7 +67,8 @@ def parse_sequence_example_test(serialized_example):
         labels: labels for frame
         label_len: label's length
     '''
-
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(serialized_example)
     context_features = {
         # "video_length": tf.FixedLenFeature([], dtype=tf.int64),
         "label_length": tf.FixedLenFeature([], dtype=tf.int64)
@@ -89,7 +94,7 @@ def parse_sequence_example_test(serialized_example):
     frames = tf.reshape(frames, (250, 90, 140, 3))
     frames = tf.image.convert_image_dtype(frames, dtype=tf.float32)
 
-    labels = tf.reshape(labels, (60,))
+    labels = tf.reshape(labels, (70,))
 
 
     tf.logging.info(frames)
