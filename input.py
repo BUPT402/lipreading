@@ -21,7 +21,8 @@ def parse_sequence_example_test(serialized_example):
         labels: labels for frame
         label_len: label's length
     '''
-
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(serialized_example)
     context_features = {
         # "video_length": tf.FixedLenFeature([], dtype=tf.int64),
         "label_length": tf.FixedLenFeature([], dtype=tf.int64)
