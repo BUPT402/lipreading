@@ -171,7 +171,7 @@ def get_frames_mouth(video_path):
     return mouth_frames
 
 
-<<<<<<< HEAD
+
 def process_dataset(self, name):
     if name == 'train':
         avi_list = glob.glob(os.path.join(FLAGS.train_video_dir, '*.avi'))
@@ -235,8 +235,6 @@ def process_dataset(self, name):
             writer.write(example.SerializeToString())
 
 
-=======
->>>>>>> b6503720c27ce06d15b03978e774dbb90454a9d5
 def _to_sequence_example(video_path, label_path, vocab):
     '''Build a SequenceExample proto for an video-label pair.
 
@@ -350,12 +348,9 @@ def process_dataset(name, video_dir, label_dir, vocab, num_shards):
     label_list = glob.glob(os.path.join(label_dir, '*.align'))
     label_list = sorted(label_list)
 
-<<<<<<< HEAD
     dataset_list = [i for i in range(len(avi_list))]  # 视频和label是分开的，分开shuffle就乱了，相当于一个索引
-=======
     dataset_list = [i for i  in range(len(avi_list))]   #视频和label是分开的，分开shuffle就乱了，相当于一个索引
     # dataset_list = [i for i in range(16)]
->>>>>>> b6503720c27ce06d15b03978e774dbb90454a9d5
     random.seed(1117)
     random.shuffle(dataset_list)
 
