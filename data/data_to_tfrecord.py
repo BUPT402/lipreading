@@ -1,4 +1,4 @@
-from __future__ import absolute_import,division,print_function
+from __future__ import absolute_import, division, print_function
 
 import os
 import tensorflow as tf
@@ -6,7 +6,7 @@ import numpy as np
 import glob
 import cv2
 import skvideo.io
-from skimage import io,color,transform,img_as_ubyte
+from skimage import io, color, transform, img_as_ubyte
 import dlib
 import random
 import threading
@@ -89,17 +89,22 @@ class Vocabulary(object):
         vocab_to_int = {word: idx for idx, word in int_to_vocab.items()}
         return int_to_vocab, vocab_to_int
 
+
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
+
 def _float_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
+
 def _int64_feature_list(values):
     return tf.train.FeatureList(feature=[_int64_feature(v) for v in values])
+
 
 def _bytes_feature_list(values):
     return tf.train.FeatureList(feature=[_bytes_feature(v) for v in values])
@@ -116,10 +121,12 @@ def get_label(vocab, text_path):
     labels = [vocab.word_to_id.get(text) for text in texts]
     return labels
 
+
 def get_frames(video_path):
     videogen = skvideo.io.vreader(video_path)
     frames = np.array([frame for frame in videogen])
     return frames
+
 
 def get_frames_mouth(video_path):
     frames = get_frames(video_path)
@@ -160,7 +167,6 @@ def get_frames_mouth(video_path):
     # mouth_frames = [img_as_ubyte(frame) for frame in mouth_frames]
 
     return mouth_frames
-
 
 
 def process_dataset(self, name):
@@ -225,6 +231,7 @@ def process_dataset(self, name):
             )
             writer.write(example.SerializeToString())
 
+
 def _to_sequence_example(video_path, label_path, vocab):
     '''Build a SequenceExample proto for an video-label pair.
 
@@ -273,7 +280,7 @@ def process_batch_files(thread_index, ranges, name, video_list,
 
     '''
     num_threads = len(ranges)
-    assert  not num_shards % num_threads
+    assert not num_shards % num_threads
     num_shards_per_batch = int(num_shards / num_threads)
 
     shard_ranges = np.linspace(ranges[thread_index][0], ranges[thread_index][1],
@@ -293,7 +300,6 @@ def process_batch_files(thread_index, ranges, name, video_list,
             idx = dataset_list[i]
             video_path = video_list[idx]
             label_path = label_list[idx]
-
 
             sequence_example = _to_sequence_example(video_path, label_path, vocab)
             if sequence_example is not None:
@@ -315,6 +321,7 @@ def process_batch_files(thread_index, ranges, name, video_list,
           (datetime.now(), thread_index, counter, num_shards_per_batch))
     sys.stdout.flush()
 
+
 def process_dataset(name, video_dir, label_dir, vocab, num_shards):
     '''Process a complete data set and save it as a TFRecord.
 
@@ -331,16 +338,16 @@ def process_dataset(name, video_dir, label_dir, vocab, num_shards):
     label_list = glob.glob(os.path.join(label_dir, '*.align'))
     label_list = sorted(label_list)
 
-    dataset_list = [i for i  in range(len(avi_list))]   #视频和label是分开的，分开shuffle就乱了，相当于一个索引
+    dataset_list = [i for i in range(len(avi_list))]  # 视频和label是分开的，分开shuffle就乱了，相当于一个索引
     random.seed(1117)
     random.shuffle(dataset_list)
 
     num_threads = min(num_shards, FLAGS.num_threads)
-    spacing = np.linspace(0, len(dataset_list), num_threads+1).astype(int)
+    spacing = np.linspace(0, len(dataset_list), num_threads + 1).astype(int)
     ranges = []
     threads = []
     for i in range(len(spacing) - 1):
-        ranges.append([spacing[i], spacing[i+1]])
+        ranges.append([spacing[i], spacing[i + 1]])
 
     coord = tf.train.Coordinator()
 
@@ -355,6 +362,10 @@ def process_dataset(name, video_dir, label_dir, vocab, num_shards):
     print('%s: Finished processing all %d video-caption pairs in data set "%s".' %
           (datetime.now(), len(video_dir), name))
 
+
+def get_loader(train_flag =True ):
+    # 要求返回
+    pass
 
 
 def main(unused_argv):
@@ -372,6 +383,7 @@ def main(unused_argv):
 
     # process_dataset('train', FLAGS.train_video_dir, FLAGS.train_label_dir, vocab, FLAGS.train_shards)
     process_dataset('val', FLAGS.val_video_dir, FLAGS.val_label_dir, vocab, FLAGS.val_shards)
+
 
 if __name__ == '__main__':
     tf.app.run()
