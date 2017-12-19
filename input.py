@@ -7,6 +7,47 @@ import tensorflow as tf
 import numpy as np
 import os
 import glob
+from collections import Counter
+
+FLAGS = tf.app.flags.FLAGS
+
+tf.flags.DEFINE_string('word_counts_output_file',
+                       '/home/zyq/video_pipline_data/test/word_counts.txt',
+                       'Output vocabulary file of word counts.')
+
+class Vocabulary(object):
+    '''vocabulary wrapper'''
+
+    def __init__(self, label_dirs):
+        self.id_to_word, self.word_to_id = self._extract_charater_vocab(label_dirs)
+
+    def _extract_charater_vocab(self, label_dirs):
+        '''get label_to_text'''
+        word_counts = Counter()
+        for label_dir in label_dirs:
+            label_list = glob.glob(os.path.join(label_dir, '*align'))
+            label_list = sorted(label_list)
+            for i in range(len(label_list)):
+                label_path = label_list[i]
+                f = open(label_path, 'r', encoding='utf-8')
+                lines = f.readlines()
+                for line in lines[1:-1]:
+                    chara = line.split(' ')[-1]
+                    word_counts.update(chara)
+                f.close()
+
+        print('Total words:', len(word_counts))
+
+        word_counts = [x for x in word_counts.items()]
+        word_counts.sort(key=lambda x: x[1], reverse=True)
+        with open(FLAGS.word_counts_output_file, 'w', encoding='utf-8') as f:
+            f.write("\n".join(["%s %d" % (w, c) for w, c in word_counts]))
+
+        words = [x[0] for x in word_counts]
+        special_words = ['<PAD>', '<EOS>', '<BOS>', '<unkonw>']
+        int_to_vocab = {idx: word for idx, word in enumerate(special_words + words)}
+        vocab_to_int = {word: idx for idx, word in int_to_vocab.items()}
+        return int_to_vocab, vocab_to_int
 
 
 def parse_sequence_example_test(serialized_example):
@@ -48,7 +89,7 @@ def parse_sequence_example_test(serialized_example):
     frames = tf.reshape(frames, (250, 90, 140, 3))
     frames = tf.image.convert_image_dtype(frames, dtype=tf.float32)
 
-    labels = tf.reshape(labels, (60,))
+    labels = tf.reshape(labels, (70,))
 
 
     tf.logging.info(frames)
