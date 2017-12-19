@@ -3,7 +3,8 @@
 import tensorflow as tf
 from image2seq import Image2Seq as Model
 from data.data_to_tfrecord import Vocabulary
-from data.data_to_tfrecord import get_loader
+# from data.data_to_tfrecord import get_loader
+from input import train_batch_generator
 
 depth = 250
 beam_width = 3
@@ -11,7 +12,8 @@ epoch_num = 100
 keep_prob = 0.5
 label_dir = 'home/lin/datasets/label'
 output_dir ='home/lin/liprading-master/result'
-data_loader = get_loader()
+data_dir = '/home/zyq/dataset/test1000'
+data_loader = train_batch_generator(data_dir, 20, 100, 8)
 
 
 def run():
