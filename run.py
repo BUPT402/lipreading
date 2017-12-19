@@ -16,6 +16,7 @@ data_dir = '/home/zyq/dataset/test1000'
 data_loader = train_batch_generator(data_dir, 20, 100, 8)
 
 
+
 def run():
     # saver = tf.train.Saver()
     model = Model(word2idx=Vocabulary(label_dirs=label_dir).word_to_id, depth=depth, img_height=90, img_width=140,
