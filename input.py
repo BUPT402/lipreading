@@ -11,7 +11,6 @@ from collections import Counter
 
 
 FLAGS = tf.app.flags.FLAGS
-FLAGS = tf.app.flags.FLAGS
 
 tf.flags.DEFINE_string('word_counts_output_file',
                        '/home/zyq/video_pipline_data/test/word_counts.txt',
