@@ -1,4 +1,5 @@
 # encoding = utf-8
+# print('123')
 import tensorflow as tf
 from image2seq import Image2Seq as Model
 from input import Vocabulary
@@ -25,6 +26,7 @@ def run():
     print('model compiled')
     for i in range(epoch_num):
         images, captions, label_length = data_loader
+        print('--------Epoch %d begin-------' % i)
         loss = model.partial_fit(images=images, captions=captions, lengths=label_length)
         print('%d Loss: %.4f' % (i, loss))
         # if i % 10 == 0:

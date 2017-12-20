@@ -51,7 +51,7 @@ sess = tf.InteractiveSession()
 
 def inference(videos):
     with tf.name_scope('input'):
-        video = tf.placeholder(tf.float32, [None,250, 140, 90, 3])
+        video = tf.placeholder(tf.float32, [None, 77, 140, 90, 3])
         video_mask = tf.placeholder(tf.int32, [None, 77])
         caption = tf.placeholder(tf.int32, [None, 25, 773])
         caption_mask = tf.placeholder(tf.int32, [None, 25])
@@ -130,6 +130,3 @@ def inference(videos):
 def loss(logits, labels):
     loss = tf.contrib.legacy_seq2seq.sequence_loss(logits, labels,
                                                    tf.ones([100, 25]))
-
-
-inference()
