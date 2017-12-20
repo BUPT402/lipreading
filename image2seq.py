@@ -162,14 +162,9 @@ class Image2Seq:
 
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.hidden_size,
                                                                 memory=self.encoder_out_tiled)
-        cell = tf.contrib.rnn.GRUCell(num_units=512)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-<<<<<<< HEAD
-            cell, attention_mechanism=attention_mechanism, attention_layer_size=250)
-=======
-            cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell(reuse=True) for _ in range(self.n_layers)]),
+             cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell(reuse=True) for _ in range(self.n_layers)]),
             attention_mechanism=attention_mechanism, attention_layer_size=self.hidden_size)
->>>>>>> 0a0c3dc130379ff0aa53039f7d43499c4d095169
 
     def add_decoder_for_inference(self):
         self.add_attention_for_inference()
@@ -177,12 +172,7 @@ class Image2Seq:
         # self.add_attention_for_inference()
 
         predicting_decoder = tf.contrib.seq2seq.BeamSearchDecoder(
-<<<<<<< HEAD
             cell=self.decoder_cell, embedding=tf.get_variable('decode_embedding'),
-=======
-            cell=self.decoder_cell,
-            embedding=tf.get_variable('decode_embedding'),
->>>>>>> 0a0c3dc130379ff0aa53039f7d43499c4d095169
             start_tokens=tf.tile(tf.constant([self.word2idx['<BOS>']], dtype=tf.int32), [self.batch_size]),
             end_token=self.word2idx['<EOS>'],
             initial_state=self.decoder_cell.zero_state(self.batch_size * self.beam_width, tf.float32).clone(
@@ -207,6 +197,7 @@ class Image2Seq:
             self.train_op = tf.train.AdamOptimizer().apply_gradients(zip(clipped_gradients, params))
 
     def partial_fit(self, images, captions, lengths):
+        images, captions, lengths = self.sess.run([images, captions, lengths])
         _, loss = self.sess.run([self.train_op, self.loss],
                                 {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
         # _, loss = self.sess.run([self.train_op, self.loss],
@@ -221,10 +212,7 @@ class Image2Seq:
         print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
 
     def processed_decoder_input(self):
-<<<<<<< HEAD
-=======
-        print("^", self.Y)
->>>>>>> 0a0c3dc130379ff0aa53039f7d43499c4d095169
+
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char
 
     def processed_decoder_output(self):
