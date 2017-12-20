@@ -48,7 +48,7 @@ class Image2Seq:
             # self.caption = tf.placeholder(tf.int32, [None, 25, 773])
             # self.caption_mask = tf.placeholder(tf.int32, [None, 25])
             self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
-            self.Y = tf.placeholder(tf.int32, [None, 70])
+            self.Y = tf.placeholder(tf.int32, [None, None])
             # self.X=None
             # self.Y=None
             self.Y_seq_len = tf.placeholder(tf.int32, [None])
@@ -81,7 +81,7 @@ class Image2Seq:
             drop3 = tf.nn.dropout(relu3, self.keep_prob)
             maxp3 = tf.layers.max_pooling3d(drop3, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
             print(maxp3)
-            resh = tf.reshape(maxp3, [-1, self.batch_size, 250*8 * 5 * 96])
+            resh = tf.reshape(maxp3, [-1,  250, 8 * 5 * 96])
 
         with tf.name_scope('GRU'):
             cells_fw = [tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer),
@@ -217,6 +217,7 @@ class Image2Seq:
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char
 
     def processed_decoder_output(self):
+        print(222222, self.Y)
         return tf.strided_slice(self.Y, [0, 1], [self.batch_size, tf.shape(self.Y)[1]], [1, 1])  # remove first char
 
 
