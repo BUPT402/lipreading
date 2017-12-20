@@ -199,6 +199,7 @@ class Image2Seq:
 
     def partial_fit(self, images, captions, lengths):
         images, captions, lengths = self.sess.run([images, captions, lengths])
+        print(images.shape)
         _, loss = self.sess.run([self.train_op, self.loss],
                                 {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
         return loss

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="ssh://zyq@10.108.102.210:22/home/zyq/anaconda3/envs/tensorflow/bin/python" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="216" autoUploadExternalChanges="true" showNewOnTargetInSync="false">
     <serverData>
-      <paths name="ssh://zyq@10.108.102.210:22/home/zyq/anaconda3/envs/tensorflow/bin/python">
+      <paths name="216">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/zyq/PycharmProjects/lipreading" local="$PROJECT_DIR$" />
+            <mapping deploy="/codes/lipreading" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
