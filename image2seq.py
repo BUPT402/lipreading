@@ -99,7 +99,7 @@ class Image2Seq:
             self.encoder_out = encode_out
             proj = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
             self.encoder_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(c=proj, h=proj) for _ in range(self.n_layers)])
-            print('self.encoder_state', self.encoder_state)
+            # print('self.encoder_state', self.encoder_state)
 
     def lstm_cell(self, reuse=False):
         return tf.nn.rnn_cell.LSTMCell(self.hidden_size, initializer=tf.orthogonal_initializer(), reuse=reuse)
@@ -146,7 +146,7 @@ class Image2Seq:
             initial_state=self.decoder_cell.zero_state(self.batch_size, tf.float32).clone(
                 cell_state=self.encoder_state),
             output_layer=core_layers.Dense(len(self.word2idx)))
-        print('training_decoder', training_decoder)
+        # print('training_decoder', training_decoder)
         # decoder表示一个decoder实例 ，maxinum_interations表示为最大解码步长，默认为None解码至结束，return(final_outputs,final_state
         # final_sequence_lengths)
         training_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder=training_decoder,
@@ -198,11 +198,9 @@ class Image2Seq:
             self.train_op = tf.train.AdamOptimizer().apply_gradients(zip(clipped_gradients, params))
 
     def partial_fit(self, images, captions, lengths):
+        images, captions, lengths = self.sess.run([images, captions, lengths])
         _, loss = self.sess.run([self.train_op, self.loss],
                                 {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
-        # _, loss = self.sess.run([self.train_op, self.loss],
-        #                         [images, captions, lengths, True])
-
         return loss
 
     def infer(self, image, idx2word):
@@ -212,7 +210,7 @@ class Image2Seq:
         print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
 
     def processed_decoder_input(self):
-        print("^", self.Y)
+        # print("^", self.Y)
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char
 
     def processed_decoder_output(self):
