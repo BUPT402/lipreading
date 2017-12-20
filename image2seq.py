@@ -90,9 +90,9 @@ class Image2Seq:
                         tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer)]
             # encode_out=[batch_size, max_time...]
             encode_out, enc_fw_state, enc_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw,
-                                                                                                    cells_bw,
-                                                                                                    resh,
-                                                                                                    dtype=tf.float32)
+                                                                    cells_bw, resh, dtype=tf.float32)
+
+            print('GRU:', encode_out, enc_fw_state, enc_bw_state)
         #     # self.encoder_out = encode_out  # (?, 250, 512)
         #     # self.encoder_state = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)  # (?, 512)
         #     # print(self.encoder_out.shape)
@@ -197,6 +197,9 @@ class Image2Seq:
             self.train_op = tf.train.AdamOptimizer().apply_gradients(zip(clipped_gradients, params))
 
     def partial_fit(self, images, captions, lengths):
+        # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+        # self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+        tf.train.start_queue_runners(sess=self.sess)
         images, captions, lengths = self.sess.run([images, captions, lengths])
         _, loss = self.sess.run([self.train_op, self.loss],
                                 {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
