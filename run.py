@@ -22,7 +22,7 @@ def run():
     model = Model(word2idx=Vocabulary(label_dirs=label_dir).word_to_id, depth=depth, img_height=90, img_width=140,
                   beam_width=beam_width,
                   keep_prob=keep_prob)
-    model.sess.run(tf.global_variables())
+    model.sess.run(tf.global_variables_initializer())
     print('model compiled')
     for i in range(epoch_num):
         images, captions, label_length = data_loader
