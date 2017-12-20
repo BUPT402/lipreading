@@ -26,9 +26,9 @@ class Vocabulary(object):
         '''get label_to_text'''
         word_counts = Counter()
         for label_dir in label_dirs:
-            print(label_dir)
+            # print(label_dir)
             label_list = glob.glob(os.path.join(label_dir, '*align'))
-            print(label_list)
+            # print(label_list)
             label_list = sorted(label_list)
             for i in range(len(label_list)):
                 label_path = label_list[i]
@@ -120,4 +120,9 @@ def train_batch_generator(data_dir, batch_size, min_queue_examples, num_thread):
         capacity=min_queue_examples + 3 * batch_size,
         min_after_dequeue=min_queue_examples
     )
+    print(frame_batch)
     return frame_batch, label_batch, label_length_batch
+
+if __name__=='__main__':
+    data_dir = '/home/zyq/dataset/test1000'
+    train_batch_generator(data_dir, 20, 100, 8)
