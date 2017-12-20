@@ -111,11 +111,8 @@ def train_batch_generator(data_dir, batch_size, min_queue_examples, num_thread):
     '''
 
     file_lists = glob.glob(os.path.join(data_dir, 'train*'))
-    print('a')
     filename_queue = tf.train.string_input_producer(file_lists)
-    print('b')
     train_data, train_label, label_length = parse_sequence_example_test(filename_queue)
-    print('c')
     frame_batch, label_batch, label_length_batch = tf.train.shuffle_batch(
         [train_data, train_label, label_length],
         batch_size=batch_size,
@@ -126,6 +123,6 @@ def train_batch_generator(data_dir, batch_size, min_queue_examples, num_thread):
     print(frame_batch)
     return frame_batch, label_batch, label_length_batch
 
-# if __name__=='__main__':
-#     data_dir = '/home/zyq/dataset/test1000'
-#     train_batch_generator(data_dir, 20, 100, 8)
+if __name__=='__main__':
+    data_dir = '/home/zyq/dataset/test1000'
+    train_batch_generator(data_dir, 20, 100, 8)

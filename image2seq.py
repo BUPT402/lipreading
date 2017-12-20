@@ -91,8 +91,6 @@ class Image2Seq:
             # encode_out=[batch_size, max_time...]
             encode_out, enc_fw_state, enc_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw,
                                                                     cells_bw, resh, dtype=tf.float32)
-
-            print('GRU:', encode_out, enc_fw_state, enc_bw_state)
         #     # self.encoder_out = encode_out  # (?, 250, 512)
         #     # self.encoder_state = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)  # (?, 512)
         #     # print(self.encoder_out.shape)
