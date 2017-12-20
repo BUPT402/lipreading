@@ -27,7 +27,7 @@ class Image2Seq:
         self.beam_width = beam_width
         self.grad_clip = grad_clip
         self.sess = sess
-        
+        print(len(self.word2idx))
         self.build_graph()
 
     def build_graph(self):
@@ -48,7 +48,7 @@ class Image2Seq:
             # self.caption = tf.placeholder(tf.int32, [None, 25, 773])
             # self.caption_mask = tf.placeholder(tf.int32, [None, 25])
             self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
-            self.Y = tf.placeholder(tf.int32, [None, 70])
+            self.Y = tf.placeholder(tf.int32, [None, None])
             # self.X=None
             # self.Y=None
             self.Y_seq_len = tf.placeholder(tf.int32, [None])
@@ -81,7 +81,8 @@ class Image2Seq:
             drop3 = tf.nn.dropout(relu3, self.keep_prob)
             maxp3 = tf.layers.max_pooling3d(drop3, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
             print(maxp3)
-            resh = tf.reshape(maxp3, [-1, self.batch_size, 250*8 * 5 * 96])
+            # resh = tf.reshape(maxp3, [-1, self.batch_size, 250*8 * 5 * 96])
+            resh = tf.reshape(maxp3, shape=[-1, 250, 5 * 8 * 96])
 
         with tf.name_scope('GRU'):
             cells_fw = [tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer),
@@ -155,6 +156,7 @@ class Image2Seq:
                                                                               self.Y_seq_len - 1))
         # 训练结果
         self.training_logits = training_decoder_output.rnn_output
+        print('logits',self.train_flag.shape)
 
     def add_attention_for_inference(self):
         self.encoder_out_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_out, self.beam_width)
@@ -188,6 +190,7 @@ class Image2Seq:
         self.predicting_ids = predicting_decoder_output.predicted_ids[:, :, 0]
 
     def add_backward_path(self):
+        # masks = tf.sequence_mask(self.Y_seq_len - 1, 69, dtype=tf.float32)
         masks = tf.sequence_mask(self.Y_seq_len - 1, tf.reduce_max(self.Y_seq_len - 1), dtype=tf.float32)
         self.loss = tf.contrib.seq2seq.sequence_loss(
             logits=self.training_logits, targets=self.processed_decoder_output(), weights=masks)
@@ -198,8 +201,9 @@ class Image2Seq:
             self.train_op = tf.train.AdamOptimizer().apply_gradients(zip(clipped_gradients, params))
 
     def partial_fit(self, images, captions, lengths):
+        tf.train.start_queue_runners(sess=self.sess)
         images, captions, lengths = self.sess.run([images, captions, lengths])
-        print(images.shape)
+        print(1111111111,lengths)
         _, loss = self.sess.run([self.train_op, self.loss],
                                 {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
         return loss
@@ -215,8 +219,10 @@ class Image2Seq:
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char
 
     def processed_decoder_output(self):
+        print(222222, self.Y)
         return tf.strided_slice(self.Y, [0, 1], [self.batch_size, tf.shape(self.Y)[1]], [1, 1])  # remove first char
-
+        # return tf.strided_slice(self.Y, [0, 1], [self.batch_size, self.Y_seq_len-1], [1, 1])  # remove first char
+#
 
 if __name__ == '__main__':
     pass

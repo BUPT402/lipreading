@@ -112,7 +112,7 @@ def train_batch_generator(data_dir, batch_size, min_queue_examples, num_thread):
     file_lists = glob.glob(os.path.join(data_dir, 'train*'))
     filename_queue = tf.train.string_input_producer(file_lists)
     train_data, train_label, label_length = parse_sequence_example_test(filename_queue)
-    print(train_label)
+    # print(train_label)
     frame_batch, label_batch, label_length_batch = tf.train.shuffle_batch(
         [train_data, train_label, label_length],
         batch_size=batch_size,
@@ -120,8 +120,8 @@ def train_batch_generator(data_dir, batch_size, min_queue_examples, num_thread):
         capacity=min_queue_examples + 3 * batch_size,
         min_after_dequeue=min_queue_examples
     )
-    print(frame_batch.shape)
-    print(label_batch[0])
+    # print(frame_batch.shape)
+    # print(label_batch[0])
     return frame_batch, label_batch, label_length_batch
 
 if __name__=='__main__':
