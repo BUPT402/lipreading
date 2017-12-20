@@ -139,17 +139,17 @@ class Image2Seq:
 
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.hidden_size,
                                                                 memory=self.encoder_out_tiled)
+        cell = tf.contrib.rnn.GRUCell(num_units=512)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-            cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell(resuse=True) for _ in range(self.n_layers)]),
-            attention_mechanism=attention_mechanism, attention_layer_size=self.hidden_size)
+            cell, attention_mechanism=attention_mechanism, attention_layer_size=250)
 
     def add_decoder_for_inference(self):
         self.add_attention_for_inference()
 
         predicting_decoder = tf.contrib.seq2seq.BeamSearchDecoder(
             cell=self.decoder_cell, embedding=tf.get_variable('decode_embedding'),
-            start_token=tf.tile(tf.constant([self.word2idx['<start>']], dtype=tf.int32), [self.batch_size]),
-            end_token=self.word2idx['<end>'],
+            start_tokens=tf.tile(tf.constant([self.word2idx['<BOS>']], dtype=tf.int32), [self.batch_size]),
+            end_token=self.word2idx['<EOS>'],
             initial_state=self.decoder_cell.zero_state(self.batch_size * self.beam_width, tf.float32).clone(
                 cell_state=self.encoder_out_tiled),
             beam_width=self.beam_width,
@@ -185,7 +185,6 @@ class Image2Seq:
         print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
 
     def processed_decoder_input(self):
-        print("^",self.Y)
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char
 
     def processed_decoder_output(self):

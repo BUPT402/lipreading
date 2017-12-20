@@ -1,5 +1,4 @@
 # encoding = utf-8
-# print('123')
 import tensorflow as tf
 from image2seq import Image2Seq as Model
 from input import Vocabulary
