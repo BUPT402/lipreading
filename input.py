@@ -125,7 +125,6 @@ def train_batch_generator(data_dir, batch_size, min_queue_examples, num_thread):
         capacity=min_queue_examples + 3 * batch_size,
         min_after_dequeue=min_queue_examples
     )
-    print(frame_batch)
     return frame_batch, label_batch, label_length_batch
 
 def _shuffle_inputs(input_tensors, capacity, min_after_dequeue, num_threads):
@@ -179,7 +178,7 @@ def var_len_train_batch_generator(data_dir, batch_size, min_queue_examples, num_
         # Since there may be fewer records than SHUFFLE_MIN_AFTER_DEQUEUE, take the
         # minimum of that number and the number of records.
         min_after_dequeue = count_records(
-            file_lists, stop_at=SHUFFLE_MIN_AFTER_DEQUEUE)
+            file_lists, stop_at=min_queue_examples)
         input_tensors = _shuffle_inputs(
             input_tensors, capacity=QUEUE_CAPACITY,
             min_after_dequeue=min_after_dequeue,
@@ -197,7 +196,3 @@ def var_len_train_batch_generator(data_dir, batch_size, min_queue_examples, num_
         dynamic_pad=True,
         allow_smaller_final_batch=False
     )
-
-if __name__=='__main__':
-    data_dir = '/home/zyq/dataset/test1000'
-    train_batch_generator(data_dir, 20, 100, 8)
