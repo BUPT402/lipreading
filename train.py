@@ -22,12 +22,13 @@ def main(args):
             # loss = model.partial_fit(data_loader)
             loss = model.partial_fit()
             print('[ batch %d ] Loss: %.4f' % (i, loss))
+        print('[Epoch %d] end: ' % epoch)
 
 
 if __name__ == '__main__':
     args = {
-        'vocab_path': '/home/zyq/dataset/word_counts.txt',
-        'data_dir': '/home/zyq/dataset/tfrecords',
+        'vocab_path': '/home/zyq/dataset/word_counts.txt',   # label地址
+        'data_dir': '/home/zyq/dataset/tfrecords',  # 数据地址
         'batch_size': 10,
         'num_threads': 4,
         'num_epochs': 10,

@@ -41,7 +41,7 @@ class Lipreading:
         self.add_backward_path()
 
     def add_input_layer(self):
-        if self.mode == 'train' or self.mode == 'eval':
+        if self.mode == 'train' or self.mode == 'eval':  # 训练和？？？？验证
             with tf.name_scope('input'):
                 self.X, self.Y, self.Y_seq_len = var_len_train_batch_generator(self.data_dir, self.batch_size, 8)
         else:
@@ -50,8 +50,8 @@ class Lipreading:
                 self.Y = tf.placeholder(tf.int32, [None, None])
                 self.Y_seq_len = tf.placeholder(tf.int32, [None])
                 self.train_flag = tf.placeholder(tf.bool)
-        # print('y', self.Y)
-        # print('y_length', self.Y_seq_len)
+                # print('y', self.Y)
+                # print('y_length', self.Y_seq_len)
 
     def add_encode_layer(self):
         with tf.name_scope('conv1'):
@@ -170,6 +170,7 @@ class Lipreading:
         self.predicting_ids = predicting_decoder_output.predicted_ids[:, :, 0]
 
     def add_backward_path(self):
+        print('y_seq', self.Y_seq_len)
         masks = tf.sequence_mask(self.Y_seq_len - 1, tf.reduce_max(self.Y_seq_len - 1),
                                  dtype=tf.float32)  # [?, ?] 动态的掩码
         self.loss = tf.contrib.seq2seq.sequence_loss(
@@ -194,9 +195,11 @@ class Lipreading:
         print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
 
     def processed_decoder_input(self):
+        print(222222, self.Y)
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char
 
     def processed_decoder_output(self):
+        print(333333, self.Y)
         return tf.strided_slice(self.Y, [0, 1], [self.batch_size, tf.shape(self.Y)[1]], [1, 1])  # remove first char
 
 

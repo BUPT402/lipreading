@@ -125,7 +125,7 @@ class Image2Seq:
         training_helper = tf.contrib.seq2seq.ScheduledEmbeddingTrainingHelper(
             inputs=tf.nn.embedding_lookup(decoder_embedding, self.processed_decoder_input()),
             sequence_length=self.Y_seq_len - 1,
-            embedding=decoder_embedding,  ## ????
+            embedding=decoder_embedding,  # ????
             sampling_probability=1 - self.force_teaching_ratio,
             time_major=False)
         # initial_state 直接将encoder的final_state作为该参数的输入即可
