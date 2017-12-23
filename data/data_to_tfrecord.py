@@ -18,26 +18,26 @@ import matplotlib.pyplot as plt
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('train_video_dir',
-                           '/home/zyq/video_pipline_data/test/dataset_avi/test1000',
+                           '/home/zyq/video_pipline_data/dataset/ST-1/video_frames/train_set',
                            'Traing video directory')
 tf.app.flags.DEFINE_string('val_video_dir',
-                           '/home/zyq/video_pipline_data/test/dataset_avi/test',
+                           '/home/zyq/video_pipline_data/dataset/ST-1/video_frames/val_set',
                            'Validation video directory')
 
 tf.app.flags.DEFINE_string('train_label_dir',
-                           '/home/zyq/video_pipline_data/test/dataset_label/test1000',
+                           '/home/zyq/video_pipline_data/dataset/ST-1/label/train_set',
                            'Traing label directory')
 tf.app.flags.DEFINE_string('val_label_dir',
-                           '/home/zyq/video_pipline_data/test/dataset_label/test',
+                           '/home/zyq/video_pipline_data/dataset/ST-1/label/val_set',
                            'Validation label directory')
 
 tf.app.flags.DEFINE_string('output_dir',
-                           '/home/zyq/video_pipline_data/test/test1000',
+                           '/home/zyq/video_pipline_data/dataset/ST-1/tfrecords',
                            'Output directory')
 
-tf.app.flags.DEFINE_string('train_shards', 16,
+tf.app.flags.DEFINE_string('train_shards', 256,
                            'Number of shards in training TFRecord files.')
-tf.app.flags.DEFINE_string('val_shards', 8,
+tf.app.flags.DEFINE_string('val_shards', 16,
                            'Number of shards in training TFRecord files.')
 
 tf.flags.DEFINE_string('start_word', '<BOS>',
@@ -51,11 +51,6 @@ tf.flags.DEFINE_string('num_threads', 8,
 tf.flags.DEFINE_string('word_counts_output_file',
                        '/home/zyq/video_pipline_data/test/word_counts.txt',
                        'Output vocabulary file of word counts.')
-
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor('/home/zyq/PycharmProjects/'
-                                 'Video_pipline/bin/shape_predictor_68_face_landmarks.dat')
-
 
 class Vocabulary(object):
     '''vocabulary wrapper'''
@@ -83,6 +78,7 @@ class Vocabulary(object):
 
         words = [a for a in dic]
         words = sorted(words)
+        print(words)
         with open(FLAGS.word_counts_output_file, 'w', encoding='utf-8') as f:
             for word in words:
                 f.write(word + ' : ' + str(dic[word]) + '\n')
@@ -125,117 +121,6 @@ def get_label(vocab, text_path):
     return labels
 
 
-def get_frames(video_path):
-    videogen = skvideo.io.vreader(video_path)
-    frames = np.array([frame for frame in videogen])
-    return frames
-
-
-def get_frames_mouth(video_path):
-    frames = get_frames(video_path)
-
-    mouth_frames = []
-    for frame in frames:
-        dets = detector(frame, 1)
-        shape = None
-        for k, d in enumerate(dets):
-            shape = predictor(frame, d)
-            i = -1
-        if shape is None or len(dets) > 1:  # Detector doesn't detect face, just return as is
-            # return
-            # mouth_crop_image = frame[mouth_centroid[1] - width:mouth_centroid[1] + width,
-            #                    mouth_centroid[0] - width:mouth_centroid[0] + width]
-            # mouth_frames.append(mouth_crop_image)
-            continue
-        mouth_points = []
-        for part in shape.parts():
-            i += 1
-            if i == 4:
-                left = part.x
-            if i == 12:
-                right = part.x
-            if i < 48:
-                continue
-            mouth_points.append((part.x, part.y))
-        # width = (right - left) // 2
-        np_mouth_points = np.array(mouth_points)
-        mouth_centroid = np.mean(np_mouth_points[:, -2:], axis=0).astype(int)
-        # mouth_crop_image = frame[mouth_centroid[1] - width:mouth_centroid[1] + width,
-        #                    mouth_centroid[0] - width:mouth_centroid[0] + width]
-        mouth_crop_image = frame[mouth_centroid[1] - 45:mouth_centroid[1] + 45,
-                           mouth_centroid[0] - 70:mouth_centroid[0] + 70]
-        mouth_frames.append(mouth_crop_image)
-
-    # mouth_frames = [transform.resize(frame, (120, 120), mode='constant') for frame in mouth_frames]
-    # mouth_frames = [img_as_ubyte(frame) for frame in mouth_frames]
-
-    return mouth_frames
-
-
-
-def process_dataset(self, name):
-    if name == 'train':
-        avi_list = glob.glob(os.path.join(FLAGS.train_video_dir, '*.avi'))
-        avi_list = sorted(avi_list)
-
-        label_list = glob.glob(os.path.join(FLAGS.train_label_dir, '*.align'))
-        label_list = sorted(label_list)
-
-        j = 0
-        for i in range(len(avi_list)):
-            if i % FLAGS.train_shards_num == 0:
-                if i != 0:
-                    writer.close()
-                    j += 1
-                writer = tf.python_io.TFRecordWriter(FLAGS.output_dir + 'train.tfrecords-%d' % (j))
-
-            mouth_frames = self.get_frames_mouth(avi_list[i])
-            avi_len = len(mouth_frames)
-
-            labels = self.get_label(label_list[i])
-            label_len = len(labels)
-
-            example = tf.train.SequenceExample(
-                context=tf.train.Features(feature={
-                    "video_length": self._int64_feature(avi_len),
-                    "label_length": self._int64_feature(label_len)
-                }),
-                feature_lists=tf.train.FeatureLists(feature_list={
-                    "frames": self._bytes_feature_list(mouth_frames),
-                    "labels": self._int64_feature_list(labels)
-                })
-            )
-            writer.write(example.SerializeToString())
-
-    else:
-        avi_list = glob.glob(os.path.join(FLAGS.val_video_dir, '*.avi'))
-        avi_list = sorted(avi_list)
-
-        label_list = glob.glob(os.path.join(FLAGS.val_label_dir, '*.align'))
-        label_list = sorted(label_list)
-
-        writer = tf.python_io.TFRecordWriter(FLAGS.output_dir + 'val.tfrecords')
-
-        for i in range(len(avi_list)):
-            mouth_frames = self.get_frames_mouth(avi_list[i])
-            avi_len = len(mouth_frames)
-
-            labels = self.get_label(label_list[i])
-            label_len = self.get_label(labels)
-
-            example = tf.train.SequenceExample(
-                context=tf.train.Features(feature={
-                    "video_length": self._int64_feature(avi_len),
-                    "label_length": self._int64_feature(label_len)
-                }),
-                feature_lists=tf.train.FeatureLists(feature_list={
-                    "frames": self._bytes_feature_list(mouth_frames),
-                    "labels": self._int64_feature_list(labels)
-                })
-            )
-            writer.write(example.SerializeToString())
-
-
 def _to_sequence_example(video_path, label_path, vocab):
     '''Build a SequenceExample proto for an video-label pair.
 
@@ -248,10 +133,9 @@ def _to_sequence_example(video_path, label_path, vocab):
         A SequenceExample proto.
     '''
 
-    # mouth_frames = get_frames_mouth(video_path)
-    # print(mouth_frames[0].shape)
-    # avi_len = len(mouth_frames)
+
     frames_list = glob.glob(os.path.join(video_path, '*.png'))
+    frames_list = sorted(frames_list)
     mouth_frames = []
     for frame in frames_list:
         mouth_frames.append(io.imread(frame))
@@ -259,9 +143,6 @@ def _to_sequence_example(video_path, label_path, vocab):
 
     labels = get_label(vocab, label_path)
     label_len = len(labels)
-
-    padding = np.zeros((70 - label_len, ), dtype=np.int32)
-    labels = np.concatenate((labels, padding), axis=0)
 
     example = tf.train.SequenceExample(
         context=tf.train.Features(feature={
@@ -350,7 +231,6 @@ def process_dataset(name, video_dir, label_dir, vocab, num_shards):
     label_list = sorted(label_list)
 
     dataset_list = [i for i in range(len(avi_list))]  # 视频和label是分开的，分开shuffle就乱了，相当于一个索引
-    dataset_list = [i for i  in range(len(avi_list))]   #视频和label是分开的，分开shuffle就乱了，相当于一个索引
     # dataset_list = [i for i in range(16)]
     random.seed(1117)
     random.shuffle(dataset_list)
@@ -376,11 +256,6 @@ def process_dataset(name, video_dir, label_dir, vocab, num_shards):
           (datetime.now(), len(video_dir), name))
 
 
-def get_loader(train_flag =True ):
-    # 要求返回
-    pass
-
-
 def main(unused_argv):
     def _is_valid_num_shards(num_shards):
         """Returns True if num_shards is compatible with FLAGS.num_threads."""
@@ -392,10 +267,10 @@ def main(unused_argv):
     assert _is_valid_num_shards(FLAGS.val_shards), (
         "Please make the FLAGS.num_threads commensurate with FLAGS.val_shards")
 
-    vocab = Vocabulary([FLAGS.train_label_dir])
+    vocab = Vocabulary([FLAGS.train_label_dir, FLAGS.val_label_dir])
 
     process_dataset('train', FLAGS.train_video_dir, FLAGS.train_label_dir, vocab, FLAGS.train_shards)
-    # process_dataset('v', FLAGS.val_video_dir, FLAGS.val_label_dir, vocab, FLAGS.val_shards)
+    process_dataset('val', FLAGS.val_video_dir, FLAGS.val_label_dir, vocab, FLAGS.val_shards)
 
 
 if __name__ == '__main__':
