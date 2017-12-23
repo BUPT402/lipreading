@@ -65,7 +65,7 @@ class Vocabulary(object):
 
     def _extract_charater_vocab(self, label_dirs):
         '''get label_to_text'''
-        word_counts = Counter()
+        dic = {}
         for label_dir in label_dirs:
             label_list = glob.glob(os.path.join(label_dir, '*align'))
             label_list = sorted(label_list)
@@ -74,18 +74,19 @@ class Vocabulary(object):
                 f = open(label_path, 'r', encoding='utf-8')
                 lines = f.readlines()
                 for line in lines[1:-1]:
-                    chara = line.split(' ')[-1]
-                    word_counts.update(chara)
+                    chara = line.split(' ')[-1][0]
+                    if chara not in dic:
+                        dic[chara] = 1
+                    else:
+                        dic[chara] += 1
                 f.close()
 
-        print('Total words:', len(word_counts))
-
-        word_counts = [x for x in word_counts.items()]
-        word_counts.sort(key=lambda x: x[1], reverse=True)
+        words = [a for a in dic]
+        words = sorted(words)
         with open(FLAGS.word_counts_output_file, 'w', encoding='utf-8') as f:
-            f.write("\n".join(["%s %d" % (w, c) for w, c in word_counts]))
+            for word in words:
+                f.write(word + ' : ' + str(dic[word]) + '\n')
 
-        words = [x[0] for x in word_counts]
         special_words = ['<PAD>', '<EOS>', '<BOS>', '<unkonw>']
         int_to_vocab = {idx: word for idx, word in enumerate(special_words + words)}
         vocab_to_int = {word: idx for idx, word in int_to_vocab.items()}

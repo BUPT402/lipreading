@@ -17,40 +17,25 @@ tf.flags.DEFINE_string('word_counts_output_file',
                        '/home/zyq/video_pipline_data/test/word_counts.txt',
                        'Output vocabulary file of word counts.')
 
-QUEUE_CAPACITY = 500
+QUEUE_CAPACITY = 200
 SHUFFLE_MIN_AFTER_DEQUEUE = QUEUE_CAPACITY // 5
 
 class Vocabulary(object):
     '''vocabulary wrapper'''
 
-    def __init__(self, label_dirs):
-        self.id_to_word, self.word_to_id = self._extract_charater_vocab(label_dirs)
+    def __init__(self, dictionary):
+        self.id_to_word, self.word_to_id = self._extract_charater_vocab(dictionary)
 
-    def _extract_charater_vocab(self, label_dirs):
+    def _extract_charater_vocab(self, dictionary):
         '''get label_to_text'''
-        word_counts = Counter()
-        for label_dir in label_dirs:
-            # print(label_dir)
-            label_list = glob.glob(os.path.join(label_dir, '*align'))
-            # print(label_list)
-            label_list = sorted(label_list)
-            for i in range(len(label_list)):
-                label_path = label_list[i]
-                f = open(label_path, 'r', encoding='utf-8')
-                lines = f.readlines()
-                for line in lines[1:-1]:
-                    chara = line.split(' ')[-1]
-                    word_counts.update(chara)
-                f.close()
+        words = []
+        with open(dictionary, 'w', encoding='utf-8') as f:
+            lines = f.readline()
+            for line in lines:
+                words.append(line.split(' ')[0])
+        words = sorted(words)
+        print(words)
 
-        print('Total words:', len(word_counts))
-
-        word_counts = [x for x in word_counts.items()]
-        word_counts.sort(key=lambda x: x[1], reverse=True)
-        # with open(FLAGS.word_counts_output_file, 'w', encoding='utf-8') as f:
-        #     f.write("\n".join(["%s %d" % (w, c) for w, c in word_counts]))
-
-        words = [x[0] for x in word_counts]
         special_words = ['<PAD>', '<EOS>', '<BOS>', '<unkonw>']
         int_to_vocab = {idx: word for idx, word in enumerate(special_words + words)}
         vocab_to_int = {word: idx for idx, word in int_to_vocab.items()}
