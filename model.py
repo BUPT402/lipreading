@@ -4,12 +4,14 @@ import tensorflow as tf
 import  numpy as np
 from input import var_len_train_batch_generator
 
+
 class Lipreading:
     def __init__(self, datadir, depth, img_height, img_width, word2idx, batch_size, mode='train', beam_width=5, keep_prob=0.1, img_ch=3,
                  embedding_dim=70, hidden_size=512, n_layers=2, grad_clip=5,
                  force_teaching_ratio=0.8,
                  sess=tf.Session()):
         self.force_teaching_ratio = force_teaching_ratio
+        self.data_dir = datadir
         self.depths = depth
         self.image_ch = img_ch
         self.img_height = img_height

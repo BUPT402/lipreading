@@ -13,6 +13,7 @@ import math
 QUEUE_CAPACITY = 200
 SHUFFLE_MIN_AFTER_DEQUEUE = QUEUE_CAPACITY // 5
 
+
 class Vocabulary(object):
     '''vocabulary wrapper'''
 
