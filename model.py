@@ -2,10 +2,10 @@
 from tensorflow.python.layers import core as core_layers
 import tensorflow as tf
 import  numpy as np
-
+from input import var_len_train_batch_generator
 
 class Lipreading:
-    def __init__(self, depth, img_height, img_width, word2idx, batch_size, beam_width=5, keep_prob=0.1, img_ch=3,
+    def __init__(self, datadir, depth, img_height, img_width, word2idx, batch_size, mode='train', beam_width=5, keep_prob=0.1, img_ch=3,
                  embedding_dim=70, hidden_size=512, n_layers=2, grad_clip=5,
                  force_teaching_ratio=0.8,
                  sess=tf.Session()):
@@ -22,6 +22,7 @@ class Lipreading:
         self.n_layers = n_layers
         self.beam_width = beam_width
         self.grad_clip = grad_clip
+        self.mode = mode
         self.sess = sess
         
         self.build_graph()
@@ -38,11 +39,15 @@ class Lipreading:
         self.add_backward_path()
 
     def add_input_layer(self):
-        with tf.name_scope('input'):
-            self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
-            self.Y = tf.placeholder(tf.int32, [None, None])
-            self.Y_seq_len = tf.placeholder(tf.int32, [None])
-            self.train_flag = tf.placeholder(tf.bool)
+        if self.mode == 'train' or self.mode == 'eval':
+            with tf.name_scope('input'):
+                self.X, self.Y, self.Y_seq_len = var_len_train_batch_generator(self.data_dir, 10, 8)
+        else:
+            with tf.name_scope('input'):
+                self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
+                self.Y = tf.placeholder(tf.int32, [None, None])
+                self.Y_seq_len = tf.placeholder(tf.int32, [None])
+                self.train_flag = tf.placeholder(tf.bool)
 
     def add_encode_layer(self):
         with tf.name_scope('conv1'):
@@ -169,12 +174,13 @@ class Lipreading:
             clipped_gradients, _ = tf.clip_by_global_norm(gradients, self.grad_clip)
             self.train_op = tf.train.AdamOptimizer().apply_gradients(zip(clipped_gradients, params))
 
-    def partial_fit(self, images, captions, lengths):
+    # def partial_fit(self, images, captions, lengths):
+    def partial_fit(self):
         tf.train.start_queue_runners(sess=self.sess)
-        images, captions, lengths = self.sess.run([images, captions, lengths])
-        _, loss = self.sess.run([self.train_op, self.loss],
-                                {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
-
+        # images, captions, lengths = self.sess.run([images, captions, lengths])
+        # _, loss = self.sess.run([self.train_op, self.loss],
+        #                         {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
+        _, loss = self.sess.run([self.train_op, self.loss])
 
         return loss
 

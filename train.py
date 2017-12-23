@@ -2,18 +2,14 @@
 import tensorflow as tf
 from model import Lipreading as Model
 from input import Vocabulary
-# from data.data_to_tfrecord import get_loader
-from input import train_batch_generator
-from input import var_len_train_batch_generator
-import os
 
 
 def main(args):
     vocab = Vocabulary(args['vocab_path'])
 
-    data_loader = var_len_train_batch_generator(args['data_dir'], args['batch_size'], args['num_threads'])
+    # data_loader = var_len_train_batch_generator(args['data_dir'], args['batch_size'], args['num_threads'])
 
-    model = Model(word2idx=vocab.word_to_id, depth=args['depth'], img_height=args['height'], img_width=args['weight'], beam_width=args['beam_width'],
+    model = Model(datadir=args['data_dir'], word2idx=vocab.word_to_id, depth=args['depth'], img_height=args['height'], img_width=args['weight'], beam_width=args['beam_width'],
                    batch_size=args['batch_size'])
 
     model.sess.run(tf.global_variables_initializer())
@@ -21,7 +17,8 @@ def main(args):
 
     for epoch in range(args['num_epochs']):
         for i in range(args['num_iterations']):
-            loss = model.partial_fit(data_loader)
+            # loss = model.partial_fit(data_loader)
+            loss = model.partial_fit()
             print('[%d ] Loss: %.4f' % (i, loss))
 
 

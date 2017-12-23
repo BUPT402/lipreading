@@ -7,7 +7,6 @@ import tensorflow as tf
 import numpy as np
 import os
 import glob
-from collections import Counter
 import math
 
 

@@ -4,16 +4,11 @@ import os
 import tensorflow as tf
 import numpy as np
 import glob
-import cv2
-import skvideo.io
 from skimage import io, color, transform, img_as_ubyte
-import dlib
 import random
 import threading
 from datetime import datetime
 import sys
-from collections import Counter
-import matplotlib.pyplot as plt
 
 FLAGS = tf.app.flags.FLAGS
 
