@@ -11,12 +11,6 @@ from collections import Counter
 import math
 
 
-FLAGS = tf.app.flags.FLAGS
-
-tf.flags.DEFINE_string('word_counts_output_file',
-                       '/home/zyq/video_pipline_data/test/word_counts.txt',
-                       'Output vocabulary file of word counts.')
-
 QUEUE_CAPACITY = 200
 SHUFFLE_MIN_AFTER_DEQUEUE = QUEUE_CAPACITY // 5
 
@@ -29,12 +23,11 @@ class Vocabulary(object):
     def _extract_charater_vocab(self, dictionary):
         '''get label_to_text'''
         words = []
-        with open(dictionary, 'w', encoding='utf-8') as f:
-            lines = f.readline()
+        with open(dictionary, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
             for line in lines:
                 words.append(line.split(' ')[0])
         words = sorted(words)
-        print(words)
 
         special_words = ['<PAD>', '<EOS>', '<BOS>', '<unkonw>']
         int_to_vocab = {idx: word for idx, word in enumerate(special_words + words)}
@@ -148,7 +141,7 @@ def count_records(file_list, stop_at=None):
     tf.logging.info('Total records: %d', num_records)
     return num_records
 
-def var_len_train_batch_generator(data_dir, batch_size, min_queue_examples, num_thread, shuffle=True):
+def var_len_train_batch_generator(data_dir, batch_size, num_thread, min_queue_examples=100, shuffle=True):
     file_lists = glob.glob(os.path.join(data_dir, 'train*'))
     filename_queue = tf.train.string_input_producer(file_lists, shuffle=True)
     train_data, train_label, label_length = parse_sequence_example_test(filename_queue)

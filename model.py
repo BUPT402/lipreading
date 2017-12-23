@@ -6,7 +6,7 @@ import  numpy as np
 
 class Lipreading:
     def __init__(self, depth, img_height, img_width, word2idx, batch_size, beam_width=5, keep_prob=0.1, img_ch=3,
-                 embedding_dim=256, hidden_size=512, n_layers=2, grad_clip=5,
+                 embedding_dim=70, hidden_size=512, n_layers=2, grad_clip=5,
                  force_teaching_ratio=0.8,
                  sess=tf.Session()):
         self.force_teaching_ratio = force_teaching_ratio
@@ -52,7 +52,7 @@ class Lipreading:
             relu1 = tf.nn.relu(batch1)
             drop1 = tf.nn.dropout(relu1, self.keep_prob)
             maxp1 = tf.layers.max_pooling3d(drop1, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling1')
-            print(maxp1)
+            # print(maxp1)
 
         with tf.name_scope('conv2'):
             conv2 = tf.layers.conv3d(maxp1, 64, [3, 5, 5], [1, 1, 1], padding='same',
@@ -61,7 +61,7 @@ class Lipreading:
             relu2 = tf.nn.relu(batch2)
             drop2 = tf.nn.dropout(relu2, self.keep_prob)
             maxp2 = tf.layers.max_pooling3d(drop2, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
-            print(maxp2)
+            # print(maxp2)
 
         with tf.name_scope('conv3'):
             conv3 = tf.layers.conv3d(maxp2, 96, [3, 3, 3], [1, 1, 1], padding='same',
@@ -70,7 +70,7 @@ class Lipreading:
             relu3 = tf.nn.relu(batch3)
             drop3 = tf.nn.dropout(relu3, self.keep_prob)
             maxp3 = tf.layers.max_pooling3d(drop3, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
-            print(maxp3)
+            # print(maxp3)
             resh = tf.reshape(maxp3, [-1,  250, 8 * 5 * 96])
 
         with tf.name_scope('GRU'):
@@ -128,7 +128,7 @@ class Lipreading:
                                                                           impute_finished=True,
                                                                           maximum_iterations=tf.reduce_max(
                                                                               self.Y_seq_len - 1))
-        print('train_decoder_output:', training_decoder_output)
+        # print('train_decoder_output:', training_decoder_output)
         # 训练结果
         self.training_logits = training_decoder_output.rnn_output   # [10, ?, 1541]
 
