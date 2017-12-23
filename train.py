@@ -9,17 +9,19 @@ def main(args):
 
     # data_loader = var_len_train_batch_generator(args['data_dir'], args['batch_size'], args['num_threads'])
 
-    model = Model(datadir=args['data_dir'], word2idx=vocab.word_to_id, depth=args['depth'], img_height=args['height'], img_width=args['weight'], beam_width=args['beam_width'],
-                   batch_size=args['batch_size'])
+    model = Model(datadir=args['data_dir'], word2idx=vocab.word_to_id, depth=args['depth'], img_height=args['height'],
+                  img_width=args['weight'], beam_width=args['beam_width'],
+                  batch_size=args['batch_size'])
 
     model.sess.run(tf.global_variables_initializer())
     print('Model compiled')
 
     for epoch in range(args['num_epochs']):
+        print('[Epoch %d] begin: ' % epoch)
         for i in range(args['num_iterations']):
             # loss = model.partial_fit(data_loader)
             loss = model.partial_fit()
-            print('[%d ] Loss: %.4f' % (i, loss))
+            print('[ batch %d ] Loss: %.4f' % (i, loss))
 
 
 if __name__ == '__main__':

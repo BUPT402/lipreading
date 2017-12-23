@@ -43,7 +43,7 @@ class Lipreading:
     def add_input_layer(self):
         if self.mode == 'train' or self.mode == 'eval':
             with tf.name_scope('input'):
-                self.X, self.Y, self.Y_seq_len = var_len_train_batch_generator(self.data_dir, 10, 8)
+                self.X, self.Y, self.Y_seq_len = var_len_train_batch_generator(self.data_dir, self.batch_size, 8)
         else:
             with tf.name_scope('input'):
                 self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])

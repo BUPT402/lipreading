@@ -2,13 +2,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 import tensorflow as tf
 import numpy as np
 import os
 import glob
 import math
-
 
 QUEUE_CAPACITY = 200
 SHUFFLE_MIN_AFTER_DEQUEUE = QUEUE_CAPACITY // 5
@@ -33,7 +31,6 @@ class Vocabulary(object):
         int_to_vocab = {idx: word for idx, word in enumerate(special_words + words)}
         vocab_to_int = {word: idx for idx, word in int_to_vocab.items()}
         return int_to_vocab, vocab_to_int
-
 
 
 def parse_sequence_example_test(serialized_example):
@@ -73,7 +70,7 @@ def parse_sequence_example_test(serialized_example):
     frames = tf.reshape(frames, (250, 90, 140, 3))
     frames = tf.image.convert_image_dtype(frames, dtype=tf.float32)
 
-    #变长不用reshape
+    # 变长不用reshape
     # labels = tf.reshape(labels, (70,))
 
 
@@ -103,6 +100,7 @@ def train_batch_generator(data_dir, batch_size, min_queue_examples, num_thread):
     )
     return frame_batch, label_batch, label_length_batch
 
+
 def _shuffle_inputs(input_tensors, capacity, min_after_dequeue, num_threads):
     """Shuffles tensors in `input_tensors`, maintaining grouping."""
     shuffle_queue = tf.RandomShuffleQueue(
@@ -117,6 +115,7 @@ def _shuffle_inputs(input_tensors, capacity, min_after_dequeue, num_threads):
         output_tensors[i].set_shape(input_tensors[i].shape)
 
     return output_tensors
+
 
 def count_records(file_list, stop_at=None):
     """Counts number of records in files from `file_list` up to `stop_at`.
@@ -136,6 +135,7 @@ def count_records(file_list, stop_at=None):
                 return num_records
     tf.logging.info('Total records: %d', num_records)
     return num_records
+
 
 def var_len_train_batch_generator(data_dir, batch_size, num_thread, min_queue_examples=100, shuffle=True):
     file_lists = glob.glob(os.path.join(data_dir, 'train*'))
