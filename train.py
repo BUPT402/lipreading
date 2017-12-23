@@ -36,6 +36,6 @@ if __name__ == '__main__':
         'height': 90,
         'weight': 140,
         'beam_width': 4,
-        'output_dir': '/tmp/lipreaading'
+        'output_dir': '/tmp/lin'
     }
     main(args)

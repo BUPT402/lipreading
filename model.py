@@ -1,12 +1,12 @@
 # encoding = utf-8
 from tensorflow.python.layers import core as core_layers
 import tensorflow as tf
-import  numpy as np
 from input import var_len_train_batch_generator
 
 
 class Lipreading:
-    def __init__(self, datadir, depth, img_height, img_width, word2idx, batch_size, mode='train', beam_width=5, keep_prob=0.1, img_ch=3,
+    def __init__(self, datadir, depth, img_height, img_width, word2idx, batch_size, mode='train', beam_width=5,
+                 keep_prob=0.1, img_ch=3,
                  embedding_dim=70, hidden_size=512, n_layers=2, grad_clip=5,
                  force_teaching_ratio=0.8,
                  sess=tf.Session()):
@@ -26,7 +26,7 @@ class Lipreading:
         self.grad_clip = grad_clip
         self.mode = mode
         self.sess = sess
-        
+
         self.build_graph()
 
     def build_graph(self):
@@ -50,6 +50,8 @@ class Lipreading:
                 self.Y = tf.placeholder(tf.int32, [None, None])
                 self.Y_seq_len = tf.placeholder(tf.int32, [None])
                 self.train_flag = tf.placeholder(tf.bool)
+        # print('y', self.Y)
+        # print('y_length', self.Y_seq_len)
 
     def add_encode_layer(self):
         with tf.name_scope('conv1'):
@@ -78,7 +80,7 @@ class Lipreading:
             drop3 = tf.nn.dropout(relu3, self.keep_prob)
             maxp3 = tf.layers.max_pooling3d(drop3, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
             # print(maxp3)
-            resh = tf.reshape(maxp3, [-1,  250, 8 * 5 * 96])
+            resh = tf.reshape(maxp3, [-1, 250, 8 * 5 * 96])
 
         with tf.name_scope('GRU'):
             cells_fw = [tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer),
@@ -87,7 +89,8 @@ class Lipreading:
                         tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer)]
             # encode_out=[batch_size, max_time...]
             encode_out, enc_fw_state, enc_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw,
-                                                                    cells_bw, resh, dtype=tf.float32)
+                                                                                                    cells_bw, resh,
+                                                                                                    dtype=tf.float32)
             #  self.encoder_out = encode_out  # (?, 250, 512)
             #  self.encoder_state = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)  # (?, 512)
             # print(self.encoder_out.shape)
@@ -137,7 +140,7 @@ class Lipreading:
                                                                               self.Y_seq_len - 1))
         # print('train_decoder_output:', training_decoder_output)
         # 训练结果
-        self.training_logits = training_decoder_output.rnn_output   # [10, ?, 1541]
+        self.training_logits = training_decoder_output.rnn_output  # [10, ?, 1541]
 
     def add_attention_for_inference(self):
         self.encoder_out_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_out, self.beam_width)
@@ -146,7 +149,7 @@ class Lipreading:
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.hidden_size,
                                                                 memory=self.encoder_out_tiled)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-             cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell(reuse=True) for _ in range(self.n_layers)]),
+            cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell(reuse=True) for _ in range(self.n_layers)]),
             attention_mechanism=attention_mechanism, attention_layer_size=self.hidden_size)
 
     def add_decoder_for_inference(self):
@@ -167,7 +170,8 @@ class Lipreading:
         self.predicting_ids = predicting_decoder_output.predicted_ids[:, :, 0]
 
     def add_backward_path(self):
-        masks = tf.sequence_mask(self.Y_seq_len - 1, tf.reduce_max(self.Y_seq_len - 1), dtype=tf.float32)   # [?, ?] 动态的掩码
+        masks = tf.sequence_mask(self.Y_seq_len - 1, tf.reduce_max(self.Y_seq_len - 1),
+                                 dtype=tf.float32)  # [?, ?] 动态的掩码
         self.loss = tf.contrib.seq2seq.sequence_loss(
             logits=self.training_logits, targets=self.processed_decoder_output(), weights=masks)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
@@ -179,9 +183,6 @@ class Lipreading:
     # def partial_fit(self, images, captions, lengths):
     def partial_fit(self):
         tf.train.start_queue_runners(sess=self.sess)
-        # images, captions, lengths = self.sess.run([images, captions, lengths])
-        # _, loss = self.sess.run([self.train_op, self.loss],
-        #                         {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
         _, loss = self.sess.run([self.train_op, self.loss])
 
         return loss
