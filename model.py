@@ -5,7 +5,7 @@ from input import var_len_train_batch_generator
 
 
 class Lipreading:
-    def __init__(self, datadir, depth, img_height, img_width, word2idx, batch_size, mode='train', beam_width=5,
+    def __init__(self, datadir, depth, img_height, img_width, word2idx, idx2word, batch_size, mode='train', beam_width=5,
                  keep_prob=0.1, img_ch=3,
                  embedding_dim=70, hidden_size=512, n_layers=2, grad_clip=5,
                  force_teaching_ratio=0.8,
@@ -17,6 +17,7 @@ class Lipreading:
         self.img_height = img_height
         self.img_width = img_width
         self.word2idx = word2idx
+        self.idx2word = idx2word
         self.hidden_size = hidden_size
         self.embedding_dim = embedding_dim
         self.keep_prob = keep_prob
@@ -36,7 +37,7 @@ class Lipreading:
             self.add_encode_layer()
         with tf.variable_scope('decode'):
             self.add_decoder_for_training()
-        with tf.variable_scope('decode', reuse=True):
+        with tf.variable_scope('decode', reuse=True):  # 与训练的decode共用参数
             self.add_decoder_for_inference()
         self.add_backward_path()
 
@@ -170,7 +171,7 @@ class Lipreading:
         self.predicting_ids = predicting_decoder_output.predicted_ids[:, :, 0]
 
     def add_backward_path(self):
-        print('y_seq', self.Y_seq_len)
+        # print('y_seq', self.Y_seq_len)
         masks = tf.sequence_mask(self.Y_seq_len - 1, tf.reduce_max(self.Y_seq_len - 1),
                                  dtype=tf.float32)  # [?, ?] 动态的掩码
         self.loss = tf.contrib.seq2seq.sequence_loss(
@@ -184,22 +185,30 @@ class Lipreading:
     # def partial_fit(self, images, captions, lengths):
     def partial_fit(self):
         tf.train.start_queue_runners(sess=self.sess)
-        _, loss = self.sess.run([self.train_op, self.loss])
-
+        _, loss, y = self.sess.run([self.train_op, self.loss, self.Y])
+        print("y", y)
+        self.infer(self.X, self.idx2word)
         return loss
+
+    # def infer(self, image, idx2word):
+    #  原来
+    #     idx2word[-1] = '-1'
+    #     out_indices = self.sess.run(self.predicting_ids,
+    #                                 {self.X: image, self.Y_seq_len: [20], self.train_flag: False})[0]
+    #     print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
 
     def infer(self, image, idx2word):
         idx2word[-1] = '-1'
-        out_indices = self.sess.run(self.predicting_ids,
-                                    {self.X: image, self.Y_seq_len: [20], self.train_flag: False})[0]
+        # tf.train.start_queue_runners(sess=self.sess)
+        out_indices = self.sess.run(self.predicting_ids)[0]
         print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
 
     def processed_decoder_input(self):
-        print(222222, self.Y)
+        # print(222222, self.Y)
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char
 
     def processed_decoder_output(self):
-        print(333333, self.Y)
+        # print(333333, self.Y)
         return tf.strided_slice(self.Y, [0, 1], [self.batch_size, tf.shape(self.Y)[1]], [1, 1])  # remove first char
 
 
