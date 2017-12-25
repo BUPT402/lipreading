@@ -5,10 +5,8 @@ import  numpy as np
 from input import var_len_train_batch_generator
 
 class Lipreading:
-    def __init__(self, datadir, depth, img_height, img_width, word2idx, batch_size, mode='train', beam_width=5, keep_prob=0.1, img_ch=3,
-                 embedding_dim=70, hidden_size=512, n_layers=2, grad_clip=5,
-                 force_teaching_ratio=0.8,
-                 sess=tf.Session()):
+    def __init__(self, data_dir, depth, img_height, img_width, word2idx, batch_size, mode='train', beam_width=5, keep_prob=0.1, img_ch=3,
+                 embedding_dim=256, hidden_size=512, n_layers=2, grad_clip=5, force_teaching_ratio=0.8, num_threads=4, sess=tf.Session()):
         self.force_teaching_ratio = force_teaching_ratio
         self.depths = depth
         self.image_ch = img_ch
@@ -24,7 +22,9 @@ class Lipreading:
         self.grad_clip = grad_clip
         self.mode = mode
         self.sess = sess
-        
+        self.data_dir = data_dir
+        self.num_threads = num_threads
+
         self.build_graph()
 
     def build_graph(self):
@@ -41,7 +41,7 @@ class Lipreading:
     def add_input_layer(self):
         if self.mode == 'train' or self.mode == 'eval':
             with tf.name_scope('input'):
-                self.X, self.Y, self.Y_seq_len = var_len_train_batch_generator(self.data_dir, 10, 8)
+                self.X, self.Y, self.Y_seq_len = var_len_train_batch_generator(self.data_dir, self.batch_size, self.num_threads)
         else:
             with tf.name_scope('input'):
                 self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
@@ -62,7 +62,7 @@ class Lipreading:
         with tf.name_scope('conv2'):
             conv2 = tf.layers.conv3d(maxp1, 64, [3, 5, 5], [1, 1, 1], padding='same',
                                      use_bias=True, kernel_initializer=tf.truncated_normal_initializer, name='conv2')
-            batch2 = tf.layers.batch_normalization(conv2, axis=2)
+            batch2 = tf.layers.batch_normalization(conv2, axis=-1)
             relu2 = tf.nn.relu(batch2)
             drop2 = tf.nn.dropout(relu2, self.keep_prob)
             maxp2 = tf.layers.max_pooling3d(drop2, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
@@ -75,7 +75,7 @@ class Lipreading:
             relu3 = tf.nn.relu(batch3)
             drop3 = tf.nn.dropout(relu3, self.keep_prob)
             maxp3 = tf.layers.max_pooling3d(drop3, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
-            # print(maxp3)
+            # print('maxp3:', maxp3)
             resh = tf.reshape(maxp3, [-1,  250, 8 * 5 * 96])
 
         with tf.name_scope('GRU'):
@@ -90,11 +90,16 @@ class Lipreading:
             #  self.encoder_state = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)  # (?, 512)
             # print(self.encoder_out.shape)
             self.encoder_out = encode_out
-            proj = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
-            self.encoder_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(c=proj, h=proj) for _ in range(self.n_layers)])
+            state_0 = tf.concat([enc_fw_state[0], enc_bw_state[0]], 1)
+            state_1 = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
+            self.encoder_state = (state_0, state_1)
+            # self.encoder_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(c=proj, h=proj) for _ in range(self.n_layers)])
 
     def lstm_cell(self, reuse=False):
         return tf.nn.rnn_cell.LSTMCell(self.hidden_size, initializer=tf.orthogonal_initializer(), reuse=reuse)
+
+    def gru_cell(self, reuse=False):
+        return tf.nn.rnn_cell.GRUCell(self.hidden_size, kernel_initializer=tf.orthogonal_initializer(), reuse=reuse)
 
     def add_attention_for_training(self):
         # attention机制使用的是LuongAttention, num_units表示attention机制的深度，memory通常是RNN encoder的输入
@@ -104,7 +109,7 @@ class Lipreading:
             num_units=self.hidden_size,
             memory=self.encoder_out)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-            cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell() for _ in range(self.n_layers)]),
+            cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell() for _ in range(self.n_layers)]),
             # cell=tf.nn.rnn_cell.GRUCell(512),
             attention_mechanism=attention_mechanism,
             attention_layer_size=self.hidden_size)
@@ -144,7 +149,7 @@ class Lipreading:
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.hidden_size,
                                                                 memory=self.encoder_out_tiled)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-             cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell(reuse=True) for _ in range(self.n_layers)]),
+             cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell(reuse=True) for _ in range(self.n_layers)]),
             attention_mechanism=attention_mechanism, attention_layer_size=self.hidden_size)
 
     def add_decoder_for_inference(self):
@@ -170,6 +175,7 @@ class Lipreading:
             logits=self.training_logits, targets=self.processed_decoder_output(), weights=masks)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             params = tf.trainable_variables()
+            print(params)
             gradients = tf.gradients(self.loss, params)
             clipped_gradients, _ = tf.clip_by_global_norm(gradients, self.grad_clip)
             self.train_op = tf.train.AdamOptimizer().apply_gradients(zip(clipped_gradients, params))
