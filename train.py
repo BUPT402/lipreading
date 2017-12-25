@@ -6,6 +6,7 @@ from model import Lipreading as Model
 from input import Vocabulary
 
 
+
 def main(args):
     model_dir = 'attention' + datetime.datetime.now().strftime('%Y:%m:%d:%H:%M:%S')
     model_name = 'ckp'

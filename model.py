@@ -190,6 +190,7 @@ class Lipreading:
         self.infer(self.X, self.idx2word)
         return loss
 
+
     # def infer(self, image, idx2word):
     #  原来
     #     idx2word[-1] = '-1'
