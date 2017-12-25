@@ -2,8 +2,11 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="ssh://zyq@10.108.102.210:22/home/zyq/anaconda3/envs/tensorflow/bin/python" name="216" url="http://10.108.102.102">
+      <webServer id="3d5de025-4c05-4451-a43e-1a4019978974" name="lipreading" url="http://10.108.102.102">
         <fileTransfer host="10.108.102.102" port="22" rootFolder="/home/zyq" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
           <option name="port" value="22" />
         </fileTransfer>
       </webServer>
