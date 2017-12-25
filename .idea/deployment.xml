@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="216" autoUploadExternalChanges="true" showNewOnTargetInSync="false">
+  <component name="PublishConfigData" autoUpload="Always" autoUploadExternalChanges="true" showNewOnTargetInSync="false">
     <serverData>
-      <paths name="216">
+      <paths name="lin">
         <serverdata>
           <mappings>
-            <mapping deploy="/codes/lipreading" local="$PROJECT_DIR$" />
+            <mapping deploy="/lipreading-master" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
