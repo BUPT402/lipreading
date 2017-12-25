@@ -12,23 +12,20 @@ import sys
 
 FLAGS = tf.app.flags.FLAGS
 
-# 训练集视频帧
 tf.app.flags.DEFINE_string('train_video_dir',
                            '/home/zyq/video_pipline_data/dataset/ST-1/video_frames/train_set',
                            'Traing video directory')
-# 验证集视频帧
 tf.app.flags.DEFINE_string('val_video_dir',
                            '/home/zyq/video_pipline_data/dataset/ST-1/video_frames/val_set',
                            'Validation video directory')
-# 训练集标签
+
 tf.app.flags.DEFINE_string('train_label_dir',
                            '/home/zyq/video_pipline_data/dataset/ST-1/label/train_set',
                            'Traing label directory')
-# 验证集标签
 tf.app.flags.DEFINE_string('val_label_dir',
                            '/home/zyq/video_pipline_data/dataset/ST-1/label/val_set',
                            'Validation label directory')
-# tf record 存储地址
+
 tf.app.flags.DEFINE_string('output_dir',
                            '/home/zyq/video_pipline_data/dataset/ST-1/tfrecords',
                            'Output directory')
@@ -46,7 +43,6 @@ tf.flags.DEFINE_string('end_word', '<EOS>',
 tf.flags.DEFINE_string('num_threads', 8,
                        'Numbers of threads to preprocess the videos.')
 
-# 汉字统计
 tf.flags.DEFINE_string('word_counts_output_file',
                        '/home/zyq/video_pipline_data/test/word_counts.txt',
                        'Output vocabulary file of word counts.')
@@ -130,6 +126,7 @@ def _to_sequence_example(video_path, label_path, vocab):
     Returns:
         A SequenceExample proto.
     '''
+
 
     frames_list = glob.glob(os.path.join(video_path, '*.png'))
     frames_list = sorted(frames_list)
