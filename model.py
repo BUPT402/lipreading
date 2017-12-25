@@ -2,7 +2,10 @@
 from tensorflow.python.layers import core as core_layers
 import tensorflow as tf
 import  numpy as np
+from tqdm import tqdm
 from input import var_len_train_batch_generator, var_len_val_batch_generator
+
+NUM_VAL_SAMPLE = 3151
 
 class Lipreading:
     def __init__(self, data_dir, depth, img_height, img_width, word2idx, batch_size, beam_width=5, keep_prob=0.1, img_ch=3,
@@ -191,6 +194,22 @@ class Lipreading:
         _, loss = self.sess.run([self.train_op, self.loss])
 
         return loss
+
+    def eval(self, idx2word):
+        if NUM_VAL_SAMPLE % self.batch_size == 0:
+            num_iteration = NUM_VAL_SAMPLE // self.batch_size
+        else:
+            num_iteration = NUM_VAL_SAMPLE // self.batch_size + 1
+
+        val_pairs = []
+        for i in tqdm(range(num_iteration)):
+            out_indices, y = self.sess.run([self.predicting_ids, self.Y])
+            for j in range(len(y)):
+                predic = ''.join([idx2word[k] for k in out_indices[j]])
+                label = ''.join([idx2word[i] for i in y[j]])
+                val_pairs.append((predic, label))
+
+        return cer_s(val_pairs)
 
     def infer(self, idx2word):
         self.train = True
