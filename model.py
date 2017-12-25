@@ -186,7 +186,7 @@ class Lipreading:
     def partial_fit(self):
         tf.train.start_queue_runners(sess=self.sess)
         _, loss, y = self.sess.run([self.train_op, self.loss, self.Y])
-        print("y", y)
+        print("--y--", y)
         self.infer(self.X, self.idx2word)
         return loss
 
@@ -200,7 +200,6 @@ class Lipreading:
 
     def infer(self, image, idx2word):
         idx2word[-1] = '-1'
-        # tf.train.start_queue_runners(sess=self.sess)
         out_indices = self.sess.run(self.predicting_ids)[0]
         print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
 
