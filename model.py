@@ -16,7 +16,7 @@ class Lipreading:
         self.image_ch = img_ch
         self.img_height = img_height
         self.img_width = img_width
-        self.word2idx = word2idx
+        self.word2idx = wor
         self.idx2word = idx2word
         self.hidden_size = hidden_size
         self.embedding_dim = embedding_dim
