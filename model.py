@@ -96,11 +96,17 @@ class Lipreading:
             #  self.encoder_state = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)  # (?, 512)
             # print(self.encoder_out.shape)
             self.encoder_out = encode_out
-            proj = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
-            self.encoder_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(c=proj, h=proj) for _ in range(self.n_layers)])
+            state_0 = tf.concat([enc_fw_state[0], enc_bw_state[0]], 1)
+            state_1 = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
+            self.encoder_state = (state_0, state_1)
+            # proj = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
+            # self.encoder_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(c=proj, h=proj) for _ in range(self.n_layers)])
 
     def lstm_cell(self, reuse=False):
         return tf.nn.rnn_cell.LSTMCell(self.hidden_size, initializer=tf.orthogonal_initializer(), reuse=reuse)
+
+    def gru_cell(self, reuse=False):
+        return tf.nn.rnn_cell.GRUCell(self.hidden_size, kernel_initializer=tf.orthogonal_initializer(), reuse=reuse)
 
     def add_attention_for_training(self):
         # attention机制使用的是LuongAttention, num_units表示attention机制的深度，memory通常是RNN encoder的输入
@@ -110,7 +116,7 @@ class Lipreading:
             num_units=self.hidden_size,
             memory=self.encoder_out)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-            cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell() for _ in range(self.n_layers)]),
+            cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell() for _ in range(self.n_layers)]),
             # cell=tf.nn.rnn_cell.GRUCell(512),
             attention_mechanism=attention_mechanism,
             attention_layer_size=self.hidden_size)
@@ -150,7 +156,7 @@ class Lipreading:
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.hidden_size,
                                                                 memory=self.encoder_out_tiled)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-            cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell(reuse=True) for _ in range(self.n_layers)]),
+            cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell(reuse=True) for _ in range(self.n_layers)]),
             attention_mechanism=attention_mechanism, attention_layer_size=self.hidden_size)
 
     def add_decoder_for_inference(self):
@@ -186,7 +192,7 @@ class Lipreading:
     def partial_fit(self):
         tf.train.start_queue_runners(sess=self.sess)
         _, loss, y = self.sess.run([self.train_op, self.loss, self.Y])
-        print("--y--", y)
+        # print("--y--", y)
         self.infer(self.X, self.idx2word)
         return loss
 
