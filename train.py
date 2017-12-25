@@ -1,10 +1,18 @@
 # encoding = utf-8
 import tensorflow as tf
 from model import Lipreading as Model
-from input import Vocabulary
+from input import Vocabulary, load_video
+import datetime
+from tqdm import tqdm
+import os
+
+NUM_TRAIN_SAMPLE = 28363
 
 
 def main(args):
+    model_dir = 'attention' + datetime.datetime.now().strftime('%Y:%m:%d:%H:%M:%S')
+    model_name = 'ckp'
+
     vocab = Vocabulary(args['vocab_path'])
 
     # data_loader = var_len_train_batch_generator(args['data_dir'], args['batch_size'], args['num_threads'])
@@ -13,14 +21,25 @@ def main(args):
                    batch_size=args['batch_size'])
 
     model.sess.run(tf.global_variables_initializer())
+    saver = tf.train.Saver()
+
     print('Model compiled')
 
-    for epoch in range(args['num_epochs']):
-        for i in range(args['num_iterations']):
-            # loss = model.partial_fit(data_loader)
-            loss = model.partial_fit()
-            print('[%d ] Loss: %.4f' % (i, loss))
+    if NUM_TRAIN_SAMPLE % args['batch_size'] == 0:
+        num_iteration = NUM_TRAIN_SAMPLE // args['batch_size']
+    else:
+        num_iteration = NUM_TRAIN_SAMPLE // args['batch_size'] + 1
+    with tf.device('/device:GPU:0'):
+        for epoch in range(args['num_epochs']):
+            print('[Epoch %d] begin ' % epoch)
 
+            for i in tqdm(range(num_iteration)):
+                loss = model.partial_fit()
+                print('\n   [%d ] Loss: %.4f' % (i, loss))
+
+            print('[Epoch %d] end ' % epoch)
+            model.infer(vocab.id_to_word)
+            saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
 
 if __name__ == '__main__':
     args = {
@@ -34,6 +53,8 @@ if __name__ == '__main__':
         'height': 90,
         'weight': 140,
         'beam_width': 4,
-        'output_dir': '/tmp/lipreaading'
+        'output_dir': '/tmp/lipreading',
+        'sample_video': '/home/zyq/dataset/video_frames/train_set/0004001',
+        'log_dir': '/tmp/lipreading'
     }
     main(args)

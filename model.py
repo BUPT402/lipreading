@@ -2,10 +2,10 @@
 from tensorflow.python.layers import core as core_layers
 import tensorflow as tf
 import  numpy as np
-from input import var_len_train_batch_generator
+from input import var_len_train_batch_generator, var_len_val_batch_generator
 
 class Lipreading:
-    def __init__(self, data_dir, depth, img_height, img_width, word2idx, batch_size, mode='train', beam_width=5, keep_prob=0.1, img_ch=3,
+    def __init__(self, data_dir, depth, img_height, img_width, word2idx, batch_size, beam_width=5, keep_prob=0.1, img_ch=3,
                  embedding_dim=256, hidden_size=512, n_layers=2, grad_clip=5, force_teaching_ratio=0.8, num_threads=4, sess=tf.Session()):
         self.force_teaching_ratio = force_teaching_ratio
         self.depths = depth
@@ -20,9 +20,9 @@ class Lipreading:
         self.n_layers = n_layers
         self.beam_width = beam_width
         self.grad_clip = grad_clip
-        self.mode = mode
         self.sess = sess
         self.data_dir = data_dir
+        self.train = True
         self.num_threads = num_threads
 
         self.build_graph()
@@ -39,15 +39,17 @@ class Lipreading:
         self.add_backward_path()
 
     def add_input_layer(self):
-        if self.mode == 'train' or self.mode == 'eval':
+        if self.train:
             with tf.name_scope('input'):
                 self.X, self.Y, self.Y_seq_len = var_len_train_batch_generator(self.data_dir, self.batch_size, self.num_threads)
         else:
             with tf.name_scope('input'):
+                # self.X, self.Y, self.Y_seq_len = var_len_val_batch_generator(self.data_dir, self.batch_size, self.num_threads)
+            # with tf.name_scope('input'):
                 self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
-                self.Y = tf.placeholder(tf.int32, [None, None])
+            #     self.Y = tf.placeholder(tf.int32, [None, None])
                 self.Y_seq_len = tf.placeholder(tf.int32, [None])
-                self.train_flag = tf.placeholder(tf.bool)
+            #     self.train_flag = tf.placeholder(tf.bool)
 
     def add_encode_layer(self):
         with tf.name_scope('conv1'):
@@ -175,13 +177,13 @@ class Lipreading:
             logits=self.training_logits, targets=self.processed_decoder_output(), weights=masks)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             params = tf.trainable_variables()
-            print(params)
             gradients = tf.gradients(self.loss, params)
             clipped_gradients, _ = tf.clip_by_global_norm(gradients, self.grad_clip)
             self.train_op = tf.train.AdamOptimizer().apply_gradients(zip(clipped_gradients, params))
 
     # def partial_fit(self, images, captions, lengths):
     def partial_fit(self):
+        self.train = True
         tf.train.start_queue_runners(sess=self.sess)
         # images, captions, lengths = self.sess.run([images, captions, lengths])
         # _, loss = self.sess.run([self.train_op, self.loss],
@@ -190,11 +192,15 @@ class Lipreading:
 
         return loss
 
-    def infer(self, image, idx2word):
+    def infer(self, idx2word):
+        self.train = True
+        print('infer')
         idx2word[-1] = '-1'
-        out_indices = self.sess.run(self.predicting_ids,
-                                    {self.X: image, self.Y_seq_len: [20], self.train_flag: False})[0]
-        print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
+        out_indices, y = self.sess.run([self.predicting_ids, self.Y])
+        # out_indices, y = self.sess.run(self.predicting_ids, self.Y)
+        for j in range(len(y)):
+            print('{}'.format(' '.join([idx2word[i] for i in out_indices[j]])))
+            print('{}'.format(' '.join([idx2word[i] for i in y[j]])))
 
     def processed_decoder_input(self):
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char

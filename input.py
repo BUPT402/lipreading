@@ -175,35 +175,16 @@ def var_len_train_batch_generator(data_dir, batch_size, num_thread, min_queue_ex
         allow_smaller_final_batch=False
     )
 
-def var_len_val_batch_generator(data_dir, batch_size, num_thread, min_queue_examples=100, shuffle=True):
+def var_len_val_batch_generator(data_dir, batch_size, num_thread):
     file_lists = glob.glob(os.path.join(data_dir, 'val*'))
-    filename_queue = tf.train.string_input_producer(file_lists, shuffle=True)
+    filename_queue = tf.train.string_input_producer(file_lists)
     train_data, train_label, label_length = parse_sequence_example_test(filename_queue)
     input_tensors = [train_data, train_label, label_length]
-
-    if shuffle:
-        if num_thread < 2:
-            raise ValueError(
-                '`num_enqueuing_threads` must be at least 2 when shuffling.')
-        shuffle_threads = int(math.ceil(num_thread) / 2.)
-
-        # Since there may be fewer records than SHUFFLE_MIN_AFTER_DEQUEUE, take the
-        # minimum of that number and the number of records.
-        min_after_dequeue = count_records(
-            file_lists, stop_at=min_queue_examples)
-        input_tensors = _shuffle_inputs(
-            input_tensors, capacity=QUEUE_CAPACITY,
-            min_after_dequeue=min_after_dequeue,
-            num_threads=shuffle_threads)
-
-        num_thread -= shuffle_threads
-
-    tf.logging.info(input_tensors)
 
     return tf.train.batch(
         input_tensors,
         batch_size=batch_size,
-        capacity=QUEUE_CAPACITY,
+        capacity=10,
         num_threads=num_thread,
         dynamic_pad=True,
         allow_smaller_final_batch=True
@@ -221,8 +202,6 @@ def load_video(frames_dir):
 
     while length < 250:
         frames_np.append(io.imread(frames[-1]))
+        length += 1
 
     return frames_np
-
-a = load_video('/home/zyq/dataset/video_frames/train_set/0004001')
-print(a)
