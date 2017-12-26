@@ -14,8 +14,6 @@ def main(args):
 
     vocab = Vocabulary(args['vocab_path'])
 
-    # data_loader = var_len_train_batch_generator(args['data_dir'], args['batch_size'], args['num_threads'])
-
     model = Model(data_dir=args['data_dir'], word2idx=vocab.word_to_id, depth=args['depth'], img_height=args['height'],
                   img_width=args['weight'], beam_width=args['beam_width'],
                   batch_size=args['batch_size'])

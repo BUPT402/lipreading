@@ -58,11 +58,6 @@ class Lipreading:
             with tf.name_scope('input'):
                 self.X, self.Y, self.Y_seq_len = var_len_val_batch_generator(self.data_dir, self.batch_size,
                                                                              self.num_threads)
-                # with tf.name_scope('input'):
-                #     self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
-                #     self.Y = tf.placeholder(tf.int32, [None, None])
-                #     self.Y_seq_len = tf.placeholder(tf.int32, [None])
-                #     self.train_flag = tf.placeholder(tf.bool)
 
     def add_encode_layer(self):
         with tf.name_scope('conv1'):
