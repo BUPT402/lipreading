@@ -36,7 +36,6 @@ def main(args):
             print('[Epoch %d] begin ' % epoch)
             for i in tqdm(range(num_iteration)):
                 loss = model.train()
-                # summary, loss = model.partial_fit()
                 print('\n   [%d ] Loss: %.4f' % (i, loss))
                 if i % 100 == 0:
                     summary = model.merged_summary()
@@ -44,7 +43,7 @@ def main(args):
 
             print('[Epoch %d] end ' % epoch)
             cer = model.eval(vocab.id_to_word)
-            print('Current cer: %.4f' % cer)
+            print('Epoch %d cer: %.4f' % (epoch, cer))
             saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
             summary_writer.close()
 

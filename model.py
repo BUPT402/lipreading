@@ -201,6 +201,7 @@ class Lipreading:
 
     def eval(self, idx2word):
         self.train_flag = False
+        self.keep_prob = 1
         if NUM_VAL_SAMPLE % self.batch_size == 0:
             num_iteration = NUM_VAL_SAMPLE // self.batch_size
         else:
@@ -222,7 +223,7 @@ class Lipreading:
                 label = ''.join([idx2word[i] for i in unpadded_y])
                 val_pairs.append((predic, label))
         count, cer = cer_s(val_pairs)
-        tf.summary.scalar(cer)
+        tf.summary.scalar('cer', cer)
         return cer
 
     def infer(self, idx2word):
