@@ -1,4 +1,3 @@
-# encoding = utf-8
 import tensorflow as tf
 from model import Lipreading as Model
 from input import Vocabulary, load_video
@@ -17,16 +16,18 @@ def main(args):
 
     # data_loader = var_len_train_batch_generator(args['data_dir'], args['batch_size'], args['num_threads'])
 
-    model = Model(data_dir=args['data_dir'], word2idx=vocab.word_to_id, depth=args['depth'], img_height=args['height'], img_width=args['weight'], beam_width=args['beam_width'],
-                   batch_size=args['batch_size'])
+    model = Model(data_dir=args['data_dir'], word2idx=vocab.word_to_id, depth=args['depth'], img_height=args['height'],
+                  img_width=args['weight'], beam_width=args['beam_width'],
+                  batch_size=args['batch_size'])
 
     model.sess.run(tf.global_variables_initializer())
     saver = tf.train.Saver()
+    summary_writer = model.summary_writer
 
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(model.sess, coord)
 
-    print('Model compiled')
+    print('—*-*-*-*-*-*-*-Model compiled-*-*-*-*-*-*-*-')
 
     if NUM_TRAIN_SAMPLE % args['batch_size'] == 0:
         num_iteration = NUM_TRAIN_SAMPLE // args['batch_size']
@@ -36,13 +37,15 @@ def main(args):
         for epoch in range(args['num_epochs']):
             print('[Epoch %d] begin ' % epoch)
             for i in tqdm(range(num_iteration)):
-                loss = model.partial_fit()
+                summary, loss = model.partial_fit()
                 print('\n   [%d ] Loss: %.4f' % (i, loss))
-                model.eval(vocab.id_to_word)
+                summary_writer.add_summary(summary, i)
+
             print('[Epoch %d] end ' % epoch)
             cer = model.eval(vocab.id_to_word)
             print('Current cer: %.4f' % cer)
             saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
+            summary_writer.close()
 
     coord.request_stop()
     coord.join(threads)
