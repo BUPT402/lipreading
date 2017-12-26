@@ -37,9 +37,12 @@ def main(args):
         for epoch in range(args['num_epochs']):
             print('[Epoch %d] begin ' % epoch)
             for i in tqdm(range(num_iteration)):
-                summary, loss = model.partial_fit()
+                loss = model.train()
+                # summary, loss = model.partial_fit()
                 print('\n   [%d ] Loss: %.4f' % (i, loss))
-                summary_writer.add_summary(summary, i)
+                if i % 100 == 0:
+                    summary = model.merged_summary()
+                    summary_writer.add_summary(summary, i)
 
             print('[Epoch %d] end ' % epoch)
             cer = model.eval(vocab.id_to_word)
