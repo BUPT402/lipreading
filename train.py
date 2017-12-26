@@ -23,6 +23,9 @@ def main(args):
     model.sess.run(tf.global_variables_initializer())
     saver = tf.train.Saver()
 
+    coord = tf.train.Coordinator()
+    threads = tf.train.start_queue_runners(model.sess, coord)
+
     print('Model compiled')
 
     if NUM_TRAIN_SAMPLE % args['batch_size'] == 0:
@@ -32,14 +35,17 @@ def main(args):
     with tf.device('/device:GPU:0'):
         for epoch in range(args['num_epochs']):
             print('[Epoch %d] begin ' % epoch)
-
             for i in tqdm(range(num_iteration)):
                 loss = model.partial_fit()
                 print('\n   [%d ] Loss: %.4f' % (i, loss))
-
+                model.eval(vocab.id_to_word)
             print('[Epoch %d] end ' % epoch)
-            model.infer(vocab.id_to_word)
+            cer = model.eval(vocab.id_to_word)
+            print('Current cer: %.4f' % cer)
             saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
+
+    coord.request_stop()
+    coord.join(threads)
 
 if __name__ == '__main__':
     args = {

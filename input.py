@@ -74,6 +74,8 @@ def parse_sequence_example_test(serialized_example):
     frames = tf.decode_raw(frames, np.uint8)
     frames = tf.reshape(frames, (250, 90, 140, 3))
     frames = tf.image.convert_image_dtype(frames, dtype=tf.float32)
+    frames = tf.subtract(frames, 0.5)
+    frames = tf.multiply(frames, 2.0)
 
     #变长不用reshape
     # labels = tf.reshape(labels, (70,))

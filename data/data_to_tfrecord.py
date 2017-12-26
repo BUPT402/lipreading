@@ -47,6 +47,7 @@ tf.flags.DEFINE_string('word_counts_output_file',
                        '/home/zyq/video_pipline_data/test/word_counts.txt',
                        'Output vocabulary file of word counts.')
 
+
 class Vocabulary(object):
     '''vocabulary wrapper'''
 
@@ -118,12 +119,10 @@ def get_label(vocab, text_path):
 
 def _to_sequence_example(video_path, label_path, vocab):
     '''Build a SequenceExample proto for an video-label pair.
-
     Args:
         video_path: Path of video data.
         label_path: Path of label data.
         vocab: A Vocabulary object.
-
     Returns:
         A SequenceExample proto.
     '''
@@ -155,7 +154,6 @@ def _to_sequence_example(video_path, label_path, vocab):
 def process_batch_files(thread_index, ranges, name, video_list,
                         label_list, vocab, num_shards, dataset_list):
     '''Processes and saves a subset of video as TFRecord files in one thread.
-
     Args:
         thread_index: 线程序号
         ranges: 将数据集分成了几个部分，A list of pairs
@@ -164,7 +162,6 @@ def process_batch_files(thread_index, ranges, name, video_list,
         label_dir：文本数据所在的文件夹
         vocab：A Vocabulary object
         num_shards： 数据集最终分成几个TFRecord
-
     '''
     num_threads = len(ranges)
     assert not num_shards % num_threads
@@ -211,8 +208,6 @@ def process_batch_files(thread_index, ranges, name, video_list,
 
 def process_dataset(name, video_dir, label_dir, vocab, num_shards):
     '''Process a complete data set and save it as a TFRecord.
-
-
     Args:
         name: 数据集的名称.
         video_dir: 数据集视频所在文件夹.

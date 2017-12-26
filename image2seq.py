@@ -1,17 +1,22 @@
 # encoding = utf-8
 from tensorflow.python.layers import core as core_layers
 import tensorflow as tf
-import  numpy as np
-from tqdm import tqdm
-from statistic import cer_s
-from input import var_len_train_batch_generator, var_len_val_batch_generator
+import os
 
-NUM_VAL_SAMPLE = 3151
+CUDA_VISIBLE_DEVICES = 0, 1
+sess = tf.InteractiveSession()
+callback = tf.keras.callbacks
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
-class Lipreading:
-    def __init__(self, data_dir, depth, img_height, img_width, word2idx, batch_size, beam_width=5, keep_prob=0.1, img_ch=3,
-                 embedding_dim=256, hidden_size=512, n_layers=2, grad_clip=5, force_teaching_ratio=0.8, num_threads=4, sess=tf.Session()):
-        self.force_teaching_ratio = force_teaching_ratio
+
+class Image2Seq:
+    def __init__(self, depth, img_height, img_width, word2idx, beam_width, keep_prob, img_ch=3,
+                 embedding_dim=512,
+                 hidden_size=512,
+                 batch_size=30,
+                 n_layers=4,
+                 grad_clip=5):
+        self.force_teaching_ratio = 0.8
         self.depths = depth
         self.image_ch = img_ch
         self.img_height = img_height
@@ -25,10 +30,7 @@ class Lipreading:
         self.beam_width = beam_width
         self.grad_clip = grad_clip
         self.sess = sess
-        self.data_dir = data_dir
-        self.train = True
-        self.num_threads = num_threads
-
+        print(len(self.word2idx))
         self.build_graph()
 
     def build_graph(self):
@@ -43,17 +45,11 @@ class Lipreading:
         self.add_backward_path()
 
     def add_input_layer(self):
-        if self.train:
-            with tf.name_scope('input'):
-                self.X, self.Y, self.Y_seq_len = var_len_train_batch_generator(self.data_dir, self.batch_size, self.num_threads)
-        else:
-            with tf.name_scope('input'):
-                self.X, self.Y, self.Y_seq_len = var_len_val_batch_generator(self.data_dir, self.batch_size, self.num_threads)
-            # with tf.name_scope('input'):
-            #     self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
-            #     self.Y = tf.placeholder(tf.int32, [None, None])
-            #     self.Y_seq_len = tf.placeholder(tf.int32, [None])
-            #     self.train_flag = tf.placeholder(tf.bool)
+        with tf.name_scope('input'):
+            self.X = tf.placeholder(tf.float32, [None, self.depths, self.img_height, self.img_width, self.image_ch])
+            self.Y = tf.placeholder(tf.int32, [None, None])
+            self.Y_seq_len = tf.placeholder(tf.int32, [None])
+            self.train_flag = tf.placeholder(tf.bool)
 
     def add_encode_layer(self):
         with tf.name_scope('conv1'):
@@ -63,16 +59,16 @@ class Lipreading:
             relu1 = tf.nn.relu(batch1)
             drop1 = tf.nn.dropout(relu1, self.keep_prob)
             maxp1 = tf.layers.max_pooling3d(drop1, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling1')
-            # print(maxp1)
+            print(maxp1)
 
         with tf.name_scope('conv2'):
             conv2 = tf.layers.conv3d(maxp1, 64, [3, 5, 5], [1, 1, 1], padding='same',
                                      use_bias=True, kernel_initializer=tf.truncated_normal_initializer, name='conv2')
-            batch2 = tf.layers.batch_normalization(conv2, axis=-1)
+            batch2 = tf.layers.batch_normalization(conv2, axis=2)
             relu2 = tf.nn.relu(batch2)
             drop2 = tf.nn.dropout(relu2, self.keep_prob)
             maxp2 = tf.layers.max_pooling3d(drop2, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
-            # print(maxp2)
+            print(maxp2)
 
         with tf.name_scope('conv3'):
             conv3 = tf.layers.conv3d(maxp2, 96, [3, 3, 3], [1, 1, 1], padding='same',
@@ -81,8 +77,9 @@ class Lipreading:
             relu3 = tf.nn.relu(batch3)
             drop3 = tf.nn.dropout(relu3, self.keep_prob)
             maxp3 = tf.layers.max_pooling3d(drop3, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
-            # print('maxp3:', maxp3)
-            resh = tf.reshape(maxp3, [-1,  250, 8 * 5 * 96])
+            print(maxp3)
+            # resh = tf.reshape(maxp3, [-1, self.batch_size, 250*8 * 5 * 96])
+            resh = tf.reshape(maxp3, shape=[-1, 250, 5 * 8 * 96])  # [batch_size, max_time， ...]
 
         with tf.name_scope('GRU'):
             cells_fw = [tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer),
@@ -91,53 +88,57 @@ class Lipreading:
                         tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer)]
             # encode_out=[batch_size, max_time...]
             encode_out, enc_fw_state, enc_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw,
-                                                                    cells_bw, resh, dtype=tf.float32)
-            #  self.encoder_out = encode_out  # (?, 250, 512)
-            #  self.encoder_state = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)  # (?, 512)
-            # print(self.encoder_out.shape)
+                                                                                                    cells_bw,
+                                                                                                    resh,
+                                                                                                    dtype=tf.float32)
             self.encoder_out = encode_out
-            state_0 = tf.concat([enc_fw_state[0], enc_bw_state[0]], 1)
-            state_1 = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
-            self.encoder_state = (state_0, state_1)
-            # self.encoder_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(c=proj, h=proj) for _ in range(self.n_layers)])
+            proj = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
+            self.encoder_state = tuple([tf.nn.rnn_cell.LSTMStateTuple(c=proj, h=proj) for _ in range(self.n_layers)])
+            # print('self.encoder_state', self.encoder_state)
 
     def lstm_cell(self, reuse=False):
         return tf.nn.rnn_cell.LSTMCell(self.hidden_size, initializer=tf.orthogonal_initializer(), reuse=reuse)
 
-    def gru_cell(self, reuse=False):
-        return tf.nn.rnn_cell.GRUCell(self.hidden_size, kernel_initializer=tf.orthogonal_initializer(), reuse=reuse)
-
     def add_attention_for_training(self):
-        # attention机制使用的是LuongAttention, num_units表示attention机制的深度，memory通常是RNN encoder的输入
+        # # attention机制使用的是LuongAttention, num_units表示attention机制的深度，memory通常是RNN encoder的输入
         # atten_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.hidden_size, memory=self.encoder_out)
-        # cell an instance of RNNcell atte_layer_size代表attention layer输出层的大小，if None表示无attention机制，直接将encode输出输入到decode中
+        # # cell an instance of RNNcell atte_layer_size代表attention layer输出层的大小，if None表示无attention机制，直接将encode输出输入到decode中
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-            num_units=self.hidden_size,
-            memory=self.encoder_out)
+            num_units=self.hidden_size,  # depth of attention mechanism
+            memory=self.encoder_out)  # the memory to query ,usually the output of RNN encoder ,[batch_size, max_time]
+        #  hidden states to attend
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-            cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell() for _ in range(self.n_layers)]),
+            cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell() for _ in range(self.n_layers)]),
             # cell=tf.nn.rnn_cell.GRUCell(512),
             attention_mechanism=attention_mechanism,
-            attention_layer_size=self.hidden_size)
+            attention_layer_size=self.hidden_size)  # attention_layer_size表示the depth of the attention(output) layera
 
     def add_decoder_for_training(self):
+        # 添加训练时的注意力机制
         self.add_attention_for_training()
-        decoder_embedding = tf.get_variable('decode_embedding', [len(self.word2idx), self.embedding_dim],
-                                            dtype=tf.float32)
+        # print(len(self.word2idx))
+        decoder_embedding = tf.get_variable('decoder_embedding', [len(self.word2idx), self.embedding_dim],
+                                            tf.float32, tf.random_uniform_initializer(-1.0, 1.0))
+        # print(decoder_embedding)
         # inputs为实际的label, sequence_length为当前batch中每个序列的长度 ，timemajor=false时,[batch_size,sequence_length,embedding_size]
         # print("-------",self.processed_decoder_input()[0])
         training_helper = tf.contrib.seq2seq.ScheduledEmbeddingTrainingHelper(
             inputs=tf.nn.embedding_lookup(decoder_embedding, self.processed_decoder_input()),
             sequence_length=self.Y_seq_len - 1,
-            embedding=decoder_embedding,
+            embedding=decoder_embedding,  # ????
             sampling_probability=1 - self.force_teaching_ratio,
             time_major=False)
+        # initial_state 直接将encoder的final_state作为该参数的输入即可
+        # print('self.encoder_state', self.encoder_state)
+        # print("self.decoder_cell", self.decoder_cell)
+        # print(self.decoder_cell)
         training_decoder = tf.contrib.seq2seq.BasicDecoder(
             cell=self.decoder_cell,
             helper=training_helper,
             initial_state=self.decoder_cell.zero_state(self.batch_size, tf.float32).clone(
                 cell_state=self.encoder_state),
             output_layer=core_layers.Dense(len(self.word2idx)))
+        # print('training_decoder', training_decoder)
         # decoder表示一个decoder实例 ，maxinum_interations表示为最大解码步长，默认为None解码至结束，return(final_outputs,final_state
         # final_sequence_lengths)
         training_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder=training_decoder,
@@ -145,7 +146,8 @@ class Lipreading:
                                                                           maximum_iterations=tf.reduce_max(
                                                                               self.Y_seq_len - 1))
         # 训练结果
-        self.training_logits = training_decoder_output.rnn_output   # [10, ?, 1541]
+        self.training_logits = training_decoder_output.rnn_output
+        # print('logits', self.training_logits)
 
     def add_attention_for_inference(self):
         self.encoder_out_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_out, self.beam_width)
@@ -154,13 +156,17 @@ class Lipreading:
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.hidden_size,
                                                                 memory=self.encoder_out_tiled)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-             cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell(reuse=True) for _ in range(self.n_layers)]),
+            cell=tf.nn.rnn_cell.MultiRNNCell([self.lstm_cell(reuse=True) for _ in range(self.n_layers)]),
             attention_mechanism=attention_mechanism, attention_layer_size=self.hidden_size)
 
     def add_decoder_for_inference(self):
         self.add_attention_for_inference()
+
+        # self.add_attention_for_inference()
+
         predicting_decoder = tf.contrib.seq2seq.BeamSearchDecoder(
-            cell=self.decoder_cell, embedding=tf.get_variable('decode_embedding'),
+            cell=self.decoder_cell,
+            embedding=tf.get_variable('decode_embedding'),
             start_tokens=tf.tile(tf.constant([self.word2idx['<BOS>']], dtype=tf.int32), [self.batch_size]),
             end_token=self.word2idx['<EOS>'],
             initial_state=self.decoder_cell.zero_state(self.batch_size * self.beam_width, tf.float32).clone(
@@ -175,7 +181,10 @@ class Lipreading:
         self.predicting_ids = predicting_decoder_output.predicted_ids[:, :, 0]
 
     def add_backward_path(self):
-        masks = tf.sequence_mask(self.Y_seq_len - 1, tf.reduce_max(self.Y_seq_len - 1), dtype=tf.float32)   # [?, ?] 动态的掩码
+        #  logits: [batch_size, sequence_length, num_decoder_symbols]
+        # masks = tf.sequence_mask(self.Y_seq_len - 1, 69, dtype=tf.float32)
+        masks = tf.sequence_mask(self.Y_seq_len - 1, tf.reduce_max(self.Y_seq_len - 1), dtype=tf.float32)
+        print('logits', self.training_logits)
         self.loss = tf.contrib.seq2seq.sequence_loss(
             logits=self.training_logits, targets=self.processed_decoder_output(), weights=masks)
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
@@ -184,52 +193,32 @@ class Lipreading:
             clipped_gradients, _ = tf.clip_by_global_norm(gradients, self.grad_clip)
             self.train_op = tf.train.AdamOptimizer().apply_gradients(zip(clipped_gradients, params))
 
-    def partial_fit(self):
-        self.train = True
-        # images, captions, lengths = self.sess.run([images, captions, lengths])
-        # _, loss = self.sess.run([self.train_op, self.loss],
-        #                         {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
-        _, loss = self.sess.run([self.train_op, self.loss])
-
+    def partial_fit(self, images, captions, lengths):
+        tf.train.start_queue_runners(sess=self.sess)
+        images, captions, lengths = self.sess.run([images, captions, lengths])
+        # print('lengths', lengths)
+        # print('captions', captions)
+        _, loss = self.sess.run([self.train_op, self.loss],
+                                {self.X: images, self.Y: captions, self.Y_seq_len: lengths, self.train_flag: True})
         return loss
 
-    def eval(self, idx2word):
-        self.train = False
-        if NUM_VAL_SAMPLE % self.batch_size == 0:
-            num_iteration = NUM_VAL_SAMPLE // self.batch_size
-        else:
-            num_iteration = NUM_VAL_SAMPLE // self.batch_size + 1
-
-        val_pairs = []
-        for i in tqdm(range(num_iteration)):
-            out_indices, y = self.sess.run([self.predicting_ids, self.Y])
-            for j in range(len(y)):
-                unpadded_out = None
-                if 1 in out_indices[j]:
-                    idx_1 = np.where(out_indices[j] == 1)[0][0]
-                    unpadded_out = out_indices[j][:idx_1]
-                else:
-                    unpadded_out = out_indices[j]
-                idx_1 = np.where(y[j] == 1)[0][0]
-                unpadded_y = y[j][1:idx_1]
-                predic = ''.join([idx2word[k] for k in unpadded_out])
-                label = ''.join([idx2word[i] for i in unpadded_y])
-                val_pairs.append((predic, label))
-        return cer_s(val_pairs)
-
-    def infer(self, idx2word):
-        self.train = True
+    def infer(self, image, idx2word):
         idx2word[-1] = '-1'
-        out_indices, y = self.sess.run([self.predicting_ids, self.Y])
-        for j in range(len(y)):
-            print('预测：', '{}'.format(' '.join([idx2word[i] for i in out_indices[j]])))
-            print('真实：', '{}'.format(' '.join([idx2word[i] for i in y[j]])))
+        tf.train.start_queue_runners(sess=self.sess)
+        images = self.sess.run([image])
+        print(0000000000, images[0].shape)
+        out_indices = self.sess.run(self.predicting_ids,
+                                    {self.X: images, self.Y_seq_len: [20], self.train_flag: False})[0]
+        print('{}'.format(' '.join([idx2word[i] for i in out_indices])))
 
     def processed_decoder_input(self):
+        # print("^", self.Y)
         return tf.strided_slice(self.Y, [0, 0], [self.batch_size, -1], [1, 1])  # remove last char
 
     def processed_decoder_output(self):
+        # print(222222, self.Y)
         return tf.strided_slice(self.Y, [0, 1], [self.batch_size, tf.shape(self.Y)[1]], [1, 1])  # remove first char
+        # return tf.strided_slice(self.Y, [0, 1], [self.batch_size, self.Y_seq_len-1], [1, 1])  # remove first char
 
 
 if __name__ == '__main__':
