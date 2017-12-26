@@ -189,6 +189,7 @@ class Lipreading:
             params = tf.trainable_variables()
             gradients = tf.gradients(self.loss, params)
             clipped_gradients, _ = tf.clip_by_global_norm(gradients, self.grad_clip)
+            tf.summary.histogram('clipped_gradients', clipped_gradients)
             self.train_op = tf.train.AdamOptimizer().apply_gradients(zip(clipped_gradients, params))
 
     def train(self):
