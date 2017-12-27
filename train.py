@@ -40,11 +40,14 @@ def main(args):
                 if i % 100 == 0:
                     summary = model.merged_summary()
                     summary_writer.add_summary(summary, i)
-
+                # cer = model.eval(vocab.id_to_word)
+                # print('Epoch %d cer: %.4f' % (epoch, cer))
             print('[Epoch %d] end ' % epoch)
+            saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
+            print('Epoch %d saved' % epoch)
             cer = model.eval(vocab.id_to_word)
             print('Epoch %d cer: %.4f' % (epoch, cer))
-            saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
+
             summary_writer.close()
 
     coord.request_stop()
@@ -56,7 +59,7 @@ if __name__ == '__main__':
         'data_dir': '/home/zyq/dataset/tfrecords',
         'batch_size': 10,
         'num_threads': 4,
-        'num_epochs': 10,
+        'num_epochs': 5,
         'num_iterations': 100,
         'depth': 250,
         'height': 90,
