@@ -126,8 +126,8 @@ class Lipreading:
 
     def add_decoder_for_training(self):
         self.add_attention_for_training()
-        decoder_embedding = tf.get_variable('decode_embedding', [len(self.word2idx), self.embedding_dim],
-                                            dtype=tf.float32)
+        decoder_embedding = tf.get_variable('decoder_embedding', [len(self.word2idx), self.embedding_dim],
+                                            tf.float32, tf.random_uniform_initializer(-1.0, 1.0))
         # inputs为实际的label, sequence_length为当前batch中每个序列的长度 ，timemajor=false时,[batch_size,sequence_length,embedding_size]
         # print("-------",self.processed_decoder_input()[0])
         training_helper = tf.contrib.seq2seq.ScheduledEmbeddingTrainingHelper(
@@ -153,12 +153,22 @@ class Lipreading:
         self.training_logits = training_decoder_output.rnn_output  # [10, ?, 1541]
         tf.summary.histogram('training_logits', self.training_logits)
 
+    # def add_attention_for_inference(self):
+    #     self.encoder_out_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_out, self.beam_width)
+    #     self.encoder_state_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_state, self.beam_width)
+    #
+    #     attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.hidden_size,
+    #                                                             memory=self.encoder_out_tiled)
+    #     self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
+    #         cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell(reuse=True) for _ in range(self.n_layers)]),
+    #         attention_mechanism=attention_mechanism, attention_layer_size=self.hidden_size)
+
     def add_attention_for_inference(self):
-        self.encoder_out_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_out, self.beam_width)
-        self.encoder_state_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_state, self.beam_width)
+        # self.encoder_out_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_out, self.beam_width)
+        # self.encoder_state_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_state, self.beam_width)
 
         attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.hidden_size,
-                                                                memory=self.encoder_out_tiled)
+                                                                memory=self.encoder_out)
         self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
             cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell(reuse=True) for _ in range(self.n_layers)]),
             attention_mechanism=attention_mechanism, attention_layer_size=self.hidden_size)
@@ -169,7 +179,7 @@ class Lipreading:
     #         cell=self.decoder_cell, embedding=tf.get_variable('decode_embedding'),
     #         start_tokens=tf.tile(tf.constant([self.word2idx['<BOS>']], dtype=tf.int32), [self.batch_size]),
     #         end_token=self.word2idx['<EOS>'],
-    #         initial_state=self.decoder_cell.zero_state(self.batch_size * self.beam_width, tf.float32).clone(
+    #         initial_state=sr_cell.zero_state(self.batch_size * self.beam_width, tf.float32).clone(
     #             cell_state=self.encoder_state_tiled),
     #         beam_width=self.beam_width,
     #         output_layer=core_layers.Dense(len(self.word2idx), _reuse=True),
@@ -182,21 +192,22 @@ class Lipreading:
 
     def add_decoder_for_inference(self):
         self.add_attention_for_inference()
-        
-        predicting_decoder = tf.contrib.seq2seq.BeamSearchDecoder(
-            cell=self.decoder_cell, embedding=tf.get_variable('decode_embedding'),
+        predicting_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+            embedding=tf.get_variable('decoder_embedding'),
             start_tokens=tf.tile(tf.constant([self.word2idx['<BOS>']], dtype=tf.int32), [self.batch_size]),
-            end_token=self.word2idx['<EOS>'],
-            initial_state=self.decoder_cell.zero_state(self.batch_size * self.beam_width, tf.float32).clone(
-                cell_state=self.encoder_state_tiled),
-            beam_width=self.beam_width,
-            output_layer=core_layers.Dense(len(self.word2idx), _reuse=True),
-            length_penalty_weight=0.0)
+            end_token=self.word2idx['<EOS>'])
+        predicting_decoder = tf.contrib.seq2seq.BasicDecoder(
+            cell=self.decoder_cell,
+            helper=predicting_helper,
+            initial_state=self.decoder_cell.zero_state(self.batch_size, tf.float32).clone(
+                cell_state=self.encoder_state),
+            output_layer=core_layers.Dense(len(self.word2idx), _reuse=True))
         predicting_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
             decoder=predicting_decoder,
-            impute_finished=False,
+            impute_finished=True,
             maximum_iterations=2 * tf.reduce_max(self.Y_seq_len - 1))
-        self.predicting_ids = predicting_decoder_output.predicted_ids[:, :, 0]
+        # self.predicting_ids = predicting_decoder_output.sample_id
+        self.predicting_ids = predicting_decoder_output.sample_id
 
     def add_backward_path(self):
         masks = tf.sequence_mask(self.Y_seq_len - 1, tf.reduce_max(self.Y_seq_len - 1),
