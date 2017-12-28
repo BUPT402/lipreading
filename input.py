@@ -10,7 +10,6 @@ import glob
 import math
 from skimage import io
 
-
 QUEUE_CAPACITY = 200
 SHUFFLE_MIN_AFTER_DEQUEUE = QUEUE_CAPACITY // 5
 
@@ -36,7 +35,7 @@ class Vocabulary(object):
 
 
 
-def parse_sequence_example_test(serialized_example):
+def parse_sequence_example(serialized_example):
     '''Parse a tensorflow.SequenceExample into video_length, label_length,
     frames, labels when testing
 
@@ -48,8 +47,7 @@ def parse_sequence_example_test(serialized_example):
         labels: labels for frame
         label_len: label's length
     '''
-    reader = tf.TFRecordReader()
-    _, serialized_example = reader.read(serialized_example)
+
     context_features = {
         # "video_length": tf.FixedLenFeature([], dtype=tf.int64),
         "label_length": tf.FixedLenFeature([], dtype=tf.int64)
@@ -84,28 +82,6 @@ def parse_sequence_example_test(serialized_example):
     tf.logging.info(frames)
     return frames, labels, label_length
 
-
-def train_batch_generator(data_dir, batch_size, min_queue_examples, num_thread):
-    '''
-    Generate batch for training.
-    :param data_dir: Datadir fo tfrecords
-    :param batch_size:
-    :param min_queue_examples: 最小队列长度，在队列中取batch
-    :return:
-        frames_batch, labels_batch, labal_length
-    '''
-
-    file_lists = glob.glob(os.path.join(data_dir, 'train*'))
-    filename_queue = tf.train.string_input_producer(file_lists)
-    train_data, train_label, label_length = parse_sequence_example_test(filename_queue)
-    frame_batch, label_batch, label_length_batch = tf.train.shuffle_batch(
-        [train_data, train_label, label_length],
-        batch_size=batch_size,
-        num_threads=num_thread,
-        capacity=min_queue_examples + 3 * batch_size,
-        min_after_dequeue=min_queue_examples
-    )
-    return frame_batch, label_batch, label_length_batch
 
 def _shuffle_inputs(input_tensors, capacity, min_after_dequeue, num_threads):
     """Shuffles tensors in `input_tensors`, maintaining grouping."""
@@ -143,54 +119,56 @@ def count_records(file_list, stop_at=None):
     tf.logging.info('Total records: %d', num_records)
     return num_records
 
-def var_len_train_batch_generator(data_dir, batch_size, num_thread, min_queue_examples=100, shuffle=True):
-    file_lists = glob.glob(os.path.join(data_dir, 'train*'))
-    filename_queue = tf.train.string_input_producer(file_lists, shuffle=True)
-    train_data, train_label, label_length = parse_sequence_example_test(filename_queue)
-    input_tensors = [train_data, train_label, label_length]
+def prefetch_input_data(reader,
+                        data_dir,
+                        batch_size,
+                        is_training,
+                        num_threads,
+                        queue_capcity=200,
+                        min_queue_examples=100):
 
-    if shuffle:
-        if num_thread < 2:
+    if is_training:
+        file_lists = glob.glob(os.path.join(data_dir, 'train*'))
+        filename_queue = tf.train.string_input_producer(file_lists, shuffle=True)
+        _, serialized_example = reader.read(filename_queue)
+        train_data, train_label, label_length = parse_sequence_example(serialized_example)
+        input_tensors = [train_data, train_label, label_length]
+
+        #shuffle操作
+        if num_threads < 2:
             raise ValueError(
                 '`num_enqueuing_threads` must be at least 2 when shuffling.')
-        shuffle_threads = int(math.ceil(num_thread) / 2.)
+        shuffle_threads = int(math.ceil(num_threads) / 2.)
 
         # Since there may be fewer records than SHUFFLE_MIN_AFTER_DEQUEUE, take the
         # minimum of that number and the number of records.
         min_after_dequeue = count_records(
             file_lists, stop_at=min_queue_examples)
         input_tensors = _shuffle_inputs(
-            input_tensors, capacity=QUEUE_CAPACITY,
+            input_tensors, capacity=queue_capcity,
             min_after_dequeue=min_after_dequeue,
             num_threads=shuffle_threads)
 
-        num_thread -= shuffle_threads
+        num_threads -= shuffle_threads
+
+    else:
+        file_lists = glob.glob(os.path.join(data_dir, 'val*'))
+        filename_queue = tf.train.string_input_producer(file_lists, shuffle=True)
+        _, serialized_example = reader.read(filename_queue)
+        train_data, train_label, label_length = parse_sequence_example(serialized_example)
+        input_tensors = [train_data, train_label, label_length]
 
     tf.logging.info(input_tensors)
 
     return tf.train.batch(
         input_tensors,
         batch_size=batch_size,
-        capacity=QUEUE_CAPACITY,
-        num_threads=num_thread,
+        capacity=queue_capcity,
+        num_threads=num_threads,
         dynamic_pad=True,
         allow_smaller_final_batch=False
     )
 
-def var_len_val_batch_generator(data_dir, batch_size, num_thread):
-    file_lists = glob.glob(os.path.join(data_dir, 'val*'))
-    filename_queue = tf.train.string_input_producer(file_lists)
-    train_data, train_label, label_length = parse_sequence_example_test(filename_queue)
-    input_tensors = [train_data, train_label, label_length]
-
-    return tf.train.batch(
-        input_tensors,
-        batch_size=batch_size,
-        capacity=10,
-        num_threads=num_thread,
-        dynamic_pad=True,
-        allow_smaller_final_batch=True
-    )
 
 def load_video(frames_dir):
     frames = glob.glob(os.path.join(frames_dir, '*png'))

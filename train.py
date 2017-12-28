@@ -4,24 +4,37 @@ from input import Vocabulary, load_video
 import datetime
 from tqdm import tqdm
 import os
+from configuration import ModelConfig, TrainingConfig
 
-NUM_TRAIN_SAMPLE = 28363
+FLAGS = tf.app.flags.FLAGS
 
+tf.flags.DEFINE_string('vocab_path', '/home/zyq/dataset/word_counts.txt', 'dictionary path')
 
-def main(args):
+tf.flags.DEFINE_integer('NUM_EPOCH', 100, 'epoch次数')
+
+tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/tfrecords', 'tfrecords路径')
+
+tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/attention2017:12:28:14:32:13',
+                       '最近一次模型保存文件')
+
+def main(unused_argv):
     model_dir = 'attention' + datetime.datetime.now().strftime('%Y:%m:%d:%H:%M:%S')
     model_name = 'ckp'
 
-    vocab = Vocabulary(args['vocab_path'])
+    model_path = tf.train.latest_checkpoint(FLAGS.checkpoint_dir)
 
-    # data_loader = var_len_train_batch_generator(args['data_dir'], args['batch_size'], args['num_threads'])
+    vocab = Vocabulary(FLAGS.vocab_path)
 
-    model = Model(data_dir=args['data_dir'], word2idx=vocab.word_to_id, depth=args['depth'], img_height=args['height'],
-                  img_width=args['weight'], beam_width=args['beam_width'],
-                  batch_size=args['batch_size'])
+    model_config = ModelConfig()
+    train_config = TrainingConfig()
+    model_config.input_file = FLAGS.input_file
+
+    model = Model(model_config=model_config, train_config=train_config, word2idx=vocab.word_to_id, mode='train')
 
     model.sess.run(tf.global_variables_initializer())
     saver = tf.train.Saver()
+    saver.restore(model.sess, model_path)
+
     summary_writer = model.summary_writer
 
     coord = tf.train.Coordinator()
@@ -29,44 +42,24 @@ def main(args):
 
     print('—*-*-*-*-*-*-*-Model compiled-*-*-*-*-*-*-*-')
 
-    if NUM_TRAIN_SAMPLE % args['batch_size'] == 0:
-        num_iteration = NUM_TRAIN_SAMPLE // args['batch_size']
+    if train_config.num_examples_per_epoch % model_config.batch_size == 0:
+        num_iteration = train_config.num_examples_per_epoch / model_config.batch_size
     else:
-        num_iteration = NUM_TRAIN_SAMPLE // args['batch_size'] + 1
-    with tf.device('/device:GPU:0'):
-        for epoch in range(args['num_epochs']):
-            print('[Epoch %d] begin ' % epoch)
-            for i in tqdm(range(num_iteration)):
-                loss = model.train()
-                # summary, loss = model.partial_fit()
-                print('\n   [%d ] Loss: %.4f' % (i, loss))
-                if i % 100 == 0:
-                    summary = model.merged_summary()
-                    summary_writer.add_summary(summary, i)
-
-            print('[Epoch %d] end ' % epoch)
-            cer = model.eval(vocab.id_to_word)
-            print('Current cer: %.4f' % cer)
-            saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
-            summary_writer.close()
+        num_iteration = train_config.num_examples_per_epoch / model_config.batch_size + 1
+    for epoch in range(FLAGS.NUM_EPOCH):
+        print('[Epoch %d] begin ' % epoch)
+        for i in tqdm(range(int(num_iteration))):
+            loss = model.run()
+            print('\n   [%d ] Loss: %.4f' % (i, loss))
+            if i % 100 == 0:
+                summary = model.merged_summary()
+                summary_writer.add_summary(summary, i)
+        saver.save(model.sess, os.path.join(model_dir, model_name + str(i)))
+        print('[Epoch %d] end ' % epoch)
+        summary_writer.close()
 
     coord.request_stop()
     coord.join(threads)
 
 if __name__ == '__main__':
-    args = {
-        'vocab_path': '/home/zyq/dataset/word_counts.txt',
-        'data_dir': '/home/zyq/dataset/tfrecords',
-        'batch_size': 10,
-        'num_threads': 4,
-        'num_epochs': 10,
-        'num_iterations': 100,
-        'depth': 250,
-        'height': 90,
-        'weight': 140,
-        'beam_width': 4,
-        'output_dir': '/tmp/lipreading',
-        'sample_video': '/home/zyq/dataset/video_frames/train_set/0004001',
-        'log_dir': '/tmp/lipreading'
-    }
-    main(args)
+    tf.app.run()
