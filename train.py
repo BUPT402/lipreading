@@ -40,11 +40,11 @@ def main(args):
                 if i % 200 == 0:
                     summary = model.merged_summary()
                     summary_writer.add_summary(summary, i)
-                    saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
+                    # saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
                 # cer = model.eval(vocab.id_to_word)
                 # print('Epoch %d cer: %.4f' % (epoch, cer))
             print('[Epoch %d] end ' % epoch)
-            # saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
+            saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
             print('Epoch %d saved' % epoch)
             cer = model.eval(vocab.id_to_word)
             print('Epoch %d cer: %.4f' % (epoch, cer))
