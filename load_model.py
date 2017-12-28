@@ -97,7 +97,7 @@ if __name__ == '__main__':
         'data_dir': '/home/zyq/dataset/tfrecords',
         'batch_size': 10,
         'num_threads': 4,
-        'num_epochs': 5,
+        'num_epochs': 10,
         'num_iterations': 100,
         'depth': 250,
         'height': 90,
