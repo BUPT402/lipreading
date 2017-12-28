@@ -73,7 +73,7 @@ def main(args):
             for i in tqdm(range(num_iteration)):
                 loss = model.train()
                 print('\n   [%d ] Loss: %.4f' % (i, loss))
-                if i % 200 == 0:
+                if i % 100 == 0:
                     summary = model.merged_summary()
                     summary_writer.add_summary(summary, i)
                     # saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
