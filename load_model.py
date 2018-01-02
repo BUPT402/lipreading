@@ -23,7 +23,7 @@ from input import Vocabulary, var_len_train_batch_generator
 #     var = tf.trainable_variables()
 #     for v in var:
 #         print(v)
-#     x = tf.get_default_graph().get_tensor_by_name('decode/decoder/dense/kernel:0')
+#     x = tf.get_default_graph().get_tensor_by_name('conv1/kernel:0')
 #     print(sess.run(x))
 #
 #     # graph = tf.get_default_graph()
@@ -42,7 +42,8 @@ NUM_TRAIN_SAMPLE = 28363
 
 
 def main(args):
-    ckpt = tf.train.get_checkpoint_state('/home/lin/lipreading-master/attention2017:12:27:21:57:06/')
+    # ckpt = tf.train.get_checkpoint_state('/home/lin/lipreading-master/attention2017:12:27:21:57:06/')
+    ckpt = tf.train.get_checkpoint_state('/home/lin/lipreading-master/attention2017:12:28:09:54:29/')
     print(ckpt.model_checkpoint_path)
     model_dir = 'attention' + datetime.datetime.now().strftime('%Y:%m:%d:%H:%M:%S')
     model_name = 'ckp'
@@ -68,14 +69,16 @@ def main(args):
     else:
         num_iteration = NUM_TRAIN_SAMPLE // args['batch_size'] + 1
     with tf.device('/device:GPU:0'):
+        count = 0
         for epoch in range(args['num_epochs']):
             print('[Epoch %d] begin ' % epoch)
             for i in tqdm(range(num_iteration)):
                 loss = model.train()
                 print('\n   [%d ] Loss: %.4f' % (i, loss))
-                if i % 100 == 0:
+                if count % 100 == 0:
                     summary = model.merged_summary()
-                    summary_writer.add_summary(summary, i)
+                    summary_writer.add_summary(summary, count)
+                    count += 1
                     # saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
                     # cer = model.eval(vocab.id_to_word)
                     # print('Epoch %d cer: %.4f' % (epoch, cer))
@@ -83,6 +86,7 @@ def main(args):
             saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
             print('Epoch %d saved' % epoch)
             cer = model.eval(vocab.id_to_word)
+
             print('Epoch %d cer: %.4f' % (epoch, cer))
 
             summary_writer.close()
