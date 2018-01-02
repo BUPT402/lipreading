@@ -90,7 +90,10 @@ class Lipreading(object):
             with tf.variable_scope('conv1'):
                 conv1 = tf.layers.conv3d(self.image_seqs, 32, [3, 5, 5], [1, 2, 2], padding='same',
                                          use_bias=True, kernel_initializer=tf.truncated_normal_initializer, name='conv1')
-                batch1 = tf.layers.batch_normalization(conv1, axis=-1, name='bn1')
+                if self.is_training():
+                    batch1 = tf.layers.batch_normalization(conv1, axis=-1, training=True, name='bn1')
+                else:
+                    batch1 = tf.layers.batch_normalization(conv1, axis=-1, training=False, name='bn1')
                 relu1 = tf.nn.relu(batch1, name='relu1')
                 if self.is_training():
                     drop1 = tf.nn.dropout(relu1, self.config.conv_dropout_keep_prob, name='drop1')
@@ -103,7 +106,10 @@ class Lipreading(object):
             with tf.variable_scope('conv2'):
                 conv2 = tf.layers.conv3d(maxp1, 64, [3, 5, 5], [1, 1, 1], padding='same',
                                          use_bias=True, kernel_initializer=tf.truncated_normal_initializer, name='conv2')
-                batch2 = tf.layers.batch_normalization(conv2, axis=-1, name='bn2')
+                if self.is_training():
+                    batch2 = tf.layers.batch_normalization(conv2, axis=-1, training=True, name='bn2')
+                else:
+                    batch2 = tf.layers.batch_normalization(conv2, axis=-1, training=False, name='bn2')
                 relu2 = tf.nn.relu(batch2, name='relu2')
                 if self.is_training():
                     drop2 = tf.nn.dropout(relu2, self.config.conv_dropout_keep_prob, name='drop2')
@@ -116,7 +122,10 @@ class Lipreading(object):
             with tf.variable_scope('conv3'):
                 conv3 = tf.layers.conv3d(maxp2, 96, [3, 3, 3], [1, 1, 1], padding='same',
                                          use_bias=False, kernel_initializer=tf.truncated_normal_initializer, name='conv3')
-                batch3 = tf.layers.batch_normalization(conv3, axis=-1, name='bn3')
+                if self.is_training():
+                    batch3 = tf.layers.batch_normalization(conv3, axis=-1, training=True, name='bn3')
+                else:
+                    batch3 = tf.layers.batch_normalization(conv3, axis=-1, training=False, name='bn3')
                 relu3 = tf.nn.relu(batch3, name='relu3')
                 if self.is_training():
                     drop3 = tf.nn.dropout(relu3, self.config.conv_dropout_keep_prob, name='drop3')
@@ -134,13 +143,22 @@ class Lipreading(object):
                             tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer)]
                 cells_bw = [tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer),
                             tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer)]
+                if self.is_training():
+                    for cell in cells_fw:
+                        cell = tf.nn.rnn_cell.DropoutWrapper(cell,
+                                                             input_keep_prob=self.config.gru_dropout_keep_prob,
+                                                             output_keep_prob=self.config.gru_dropout_keep_prob)
+                    for cell in cells_bw:
+                        cell = tf.nn.rnn_cell.DropoutWrapper(cell,
+                                                             input_keep_prob=self.config.gru_dropout_keep_prob,
+                                                             output_keep_prob=self.config.gru_dropout_keep_prob)
                 encode_out, enc_fw_state, enc_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw,
                                                                                                         cells_bw,
                                                                                                         self.video_feature,
                                                                                                         dtype=tf.float32,
                                                                                                         scope=scope)
                 self.encoder_out = encode_out
-                tf.summary.histogram('encoder_out', self.encoder_out)
+                tf.summary.histogram('encoder_out', self.encoder_out, collections=['train'])
                 state_0 = tf.concat([enc_fw_state[0], enc_bw_state[0]], 1)
                 state_1 = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
                 self.encoder_state = (state_0, state_1)
@@ -228,7 +246,12 @@ class Lipreading(object):
         return tf.nn.rnn_cell.LSTMCell(self.config.hidden_size, initializer=tf.orthogonal_initializer(), reuse=reuse)
 
     def gru_cell(self, reuse=False):
-        return tf.nn.rnn_cell.GRUCell(self.config.hidden_size, kernel_initializer=tf.orthogonal_initializer(), reuse=reuse)
+        cell = tf.nn.rnn_cell.GRUCell(self.config.hidden_size, kernel_initializer=tf.orthogonal_initializer(), reuse=reuse)
+        if self.is_training():
+            dropout_cell = tf.nn.rnn_cell.DropoutWrapper(cell, self.config.gru_dropout_keep_prob)
+            return dropout_cell
+        else:
+            return cell
 
     def build_train(self, clip_gradients, learning_rate):
         self.masks = tf.sequence_mask(self.label_length - 1, tf.reduce_max(self.label_length - 1), dtype=tf.float32)   # [?, ?] 动态的掩码
@@ -256,7 +279,6 @@ class Lipreading(object):
 
     def infer(self, idx2word):
         self.train_flag = True
-        self.keep_prob = 1
         idx2word[-1] = '-1'
         out_indices, y = self.sess.run([self.predicting_ids, self.Y])
         for j in range(len(y)):
