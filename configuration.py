@@ -50,5 +50,6 @@ class TrainingConfig(object):
         self.initial_learning_rate = 0.001
         self.learning_rate_decay = 0.9
         self.num_epoch_per_decay = 8.0
+        self.weight_decay = 0.0005
 
         self.clip_gradients = 5.0

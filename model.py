@@ -14,6 +14,7 @@ class Lipreading(object):
 
         self.reader = tf.TFRecordReader()
         self.config = model_config
+        self.train_config = train_config
         self.mode = mode
 
         self.sess = sess
@@ -46,8 +47,14 @@ class Lipreading(object):
 
 
         self.build(train_config)
-        self.summary_writer = tf.summary.FileWriter('logs_all/log' + datetime.datetime.now().strftime('%Y:%m:%d:%H:%M:%S'),
-                                                    graph=self.sess.graph)
+
+        # if mode == 'train':
+        self.summary_writer = tf.summary.FileWriter('logs_train/log' + datetime.datetime.now().strftime('%Y:%m:%d:%H:%M:%S'),
+                                                        graph=self.sess.graph)
+        # elif mode == 'eval':
+        #     self.summary_writer = tf.summary.FileWriter(
+        #         'logs_eval/log' + datetime.datetime.now().strftime('%Y:%m:%d:%H:%M:%S'),
+        #         graph=self.sess.graph)
 
     def is_training(self):
         return self.mode == 'train'
@@ -58,7 +65,8 @@ class Lipreading(object):
         self.buils_encode()
         self.build_decode()
         self.build_train(train_config.clip_gradients, train_config.initial_learning_rate)
-        self.summary_op = tf.summary.merge_all()
+        self.train_summary = tf.summary.merge_all('train')
+        self.eval_summary = tf.summary.merge_all('eval')
 
     def build_inputs(self):
         if self.mode == 'inference':
@@ -89,8 +97,8 @@ class Lipreading(object):
                     maxp1 = tf.layers.max_pooling3d(drop1, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling1')
                 else:
                     maxp1 = tf.layers.max_pooling3d(relu1, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling1')
-                tf.summary.histogram('conv1', conv1)
-                tf.summary.histogram('activations_1', maxp1)
+                tf.summary.histogram('conv1', conv1, collections=['train'])
+                tf.summary.histogram('activations_1', maxp1, collections=['train'])
 
             with tf.variable_scope('conv2'):
                 conv2 = tf.layers.conv3d(maxp1, 64, [3, 5, 5], [1, 1, 1], padding='same',
@@ -102,8 +110,8 @@ class Lipreading(object):
                     maxp2 = tf.layers.max_pooling3d(drop2, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
                 else:
                     maxp2 = tf.layers.max_pooling3d(relu2, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling2')
-                tf.summary.histogram('conv2', conv2)
-                tf.summary.histogram('activations_2', maxp2)
+                tf.summary.histogram('conv2', conv2, collections=['train'])
+                tf.summary.histogram('activations_2', maxp2, collections=['train'])
 
             with tf.variable_scope('conv3'):
                 conv3 = tf.layers.conv3d(maxp2, 96, [3, 3, 3], [1, 1, 1], padding='same',
@@ -115,8 +123,8 @@ class Lipreading(object):
                     maxp3 = tf.layers.max_pooling3d(drop3, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling3')
                 else:
                     maxp3 = tf.layers.max_pooling3d(relu3, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling3')
-                tf.summary.histogram('conv3', conv3)
-                tf.summary.histogram('activations_3', maxp3)
+                tf.summary.histogram('conv3', conv3, collections=['train'])
+                tf.summary.histogram('activations_3', maxp3, collections=['train'])
                 self.video_feature = tf.reshape(maxp3, [-1, 250, 8 * 5 * 96])
 
     def buils_encode(self):
@@ -136,7 +144,7 @@ class Lipreading(object):
                 state_0 = tf.concat([enc_fw_state[0], enc_bw_state[0]], 1)
                 state_1 = tf.concat([enc_fw_state[1], enc_bw_state[1]], 1)
                 self.encoder_state = (state_0, state_1)
-                tf.summary.histogram('encoder_state', self.encoder_state)
+                tf.summary.histogram('encoder_state', self.encoder_state, collections=['train'])
 
     def build_decode(self):
         '''decoder部分
@@ -186,7 +194,7 @@ class Lipreading(object):
             # 训练结果
             with tf.variable_scope('logits'):
                 self.training_logits = self.training_decoder_output.rnn_output  # [10, ?, 1541]
-                tf.summary.histogram('training_logits', self.training_logits)
+                tf.summary.histogram('training_logits', self.training_logits, collections=['train'])
 
         with tf.variable_scope('decoder', reuse=True) as scope:
             self.encoder_out_tiled = tf.contrib.seq2seq.tile_batch(self.encoder_out, self.config.beam_width)
@@ -224,9 +232,11 @@ class Lipreading(object):
 
     def build_train(self, clip_gradients, learning_rate):
         self.masks = tf.sequence_mask(self.label_length - 1, tf.reduce_max(self.label_length - 1), dtype=tf.float32)   # [?, ?] 动态的掩码
+        print(tf.trainable_variables())
+        self.l2_losses  = [self.train_config.weight_decay * tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'kernel' in v.name]
         self.loss = tf.contrib.seq2seq.sequence_loss(
-            logits=self.training_logits, targets=self.processed_decoder_output(), weights=self.masks)
-        tf.summary.scalar('loss', self.loss)
+            logits=self.training_logits, targets=self.processed_decoder_output(), weights=self.masks) + tf.add_n(self.l2_losses)
+        tf.summary.scalar('loss', self.loss, collections=['train'])
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             params = tf.trainable_variables()
             gradients = tf.gradients(self.loss, params)
@@ -243,32 +253,6 @@ class Lipreading(object):
             pred, loss, label = self.sess.run([self.predicting_ids, self.loss, self.label_seqs])
             return pred, loss, label
 
-    def eval(self, idx2word):
-        self.train_flag = False
-        self.keep_prob = 1
-        if NUM_VAL_SAMPLE % self.batch_size == 0:
-            num_iteration = NUM_VAL_SAMPLE // self.batch_size
-        else:
-            num_iteration = NUM_VAL_SAMPLE // self.batch_size + 1
-
-        val_pairs = []
-        for i in tqdm(range(num_iteration)):
-            out_indices, y = self.sess.run([self.predicting_ids, self.Y])
-            for j in range(len(y)):
-                unpadded_out = None
-                if 1 in out_indices[j]:
-                    idx_1 = np.where(out_indices[j] == 1)[0][0]
-                    unpadded_out = out_indices[j][:idx_1]
-                else:
-                    unpadded_out = out_indices[j]
-                idx_1 = np.where(y[j] == 1)[0][0]
-                unpadded_y = y[j][1:idx_1]
-                predic = ''.join([idx2word[k] for k in unpadded_out])
-                label = ''.join([idx2word[i] for i in unpadded_y])
-                val_pairs.append((predic, label))
-        count, cer = cer_s(val_pairs)
-        # tf.summary.scalar(cer)
-        return cer
 
     def infer(self, idx2word):
         self.train_flag = True
@@ -280,7 +264,10 @@ class Lipreading(object):
             print('{}'.format(' '.join([idx2word[i] for i in y[j]])))
 
     def merged_summary(self):
-        summary = self.sess.run(self.summary_op)
+        if self.is_training():
+            summary = self.sess.run(self.train_summary)
+        else:
+            summary = self.sess.run(self.eval_summary)
         return summary
 
     def processed_decoder_input(self):
