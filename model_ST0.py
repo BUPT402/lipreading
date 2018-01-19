@@ -3,7 +3,7 @@ import tensorflow as tf
 import  numpy as np
 from tqdm import tqdm
 from statistic import cer_s
-from input import build_dataset
+from input_ST0 import build_dataset
 import datetime
 
 NUM_VAL_SAMPLE = 3151
@@ -91,7 +91,7 @@ class Lipreading(object):
                 maxp3 = tf.layers.max_pooling3d(drop3, [1, 2, 2], [1, 2, 2], padding='valid', name='maxpooling3')
                 tf.summary.histogram('conv3', conv3, collections=['train'])
                 tf.summary.histogram('activations_3', maxp3, collections=['train'])
-                self.video_feature = tf.reshape(maxp3, [-1, 250, 8 * 5 * 96])
+                self.video_feature = tf.reshape(maxp3, [-1, 77, 8 * 5 * 96])
 
     def buils_encode(self):
         with tf.variable_scope('encoder') as scope:
@@ -100,14 +100,14 @@ class Lipreading(object):
                             tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer)]
                 cells_bw = [tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer),
                             tf.nn.rnn_cell.GRUCell(256, kernel_initializer=tf.orthogonal_initializer)]
-                for cell in cells_fw:
-                    cell = tf.nn.rnn_cell.DropoutWrapper(cell,
-                                                         input_keep_prob=self.dropout_prob,
-                                                         output_keep_prob=self.dropout_prob)
-                for cell in cells_bw:
-                    cell = tf.nn.rnn_cell.DropoutWrapper(cell,
-                                                         input_keep_prob=self.dropout_prob,
-                                                         output_keep_prob=self.dropout_prob)
+                # for cell in cells_fw:
+                #     cell = tf.nn.rnn_cell.DropoutWrapper(cell,
+                #                                          input_keep_prob=self.dropout_prob,
+                #                                          output_keep_prob=self.dropout_prob)
+                # for cell in cells_bw:
+                #     cell = tf.nn.rnn_cell.DropoutWrapper(cell,
+                #                                          input_keep_prob=self.dropout_prob,
+                #                                          output_keep_prob=self.dropout_prob)
                 encode_out, enc_fw_state, enc_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw,
                                                                                                         cells_bw,
                                                                                                         self.video_feature,

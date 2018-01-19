@@ -25,23 +25,24 @@ class ModelConfig(object):
         self.frames_name = 'frames'
         self.label_name = 'labels'
 
-        self.batch_size = 10
+        self.batch_size = 20
 
         self.image_weight = 90
         self.image_height = 140
-        self.image_depth = 250
+        self.image_depth = 77
         self.image_channel = 3
 
         self.initializer_scale = 0.08
 
         self.beam_width = 5
 
-        self.train_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/tfrecords', '*train*'))
-        self.val_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/tfrecords', '*val*'))
+        self.train_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/ST-0/tfrecords', '*train*'))
+        self.val_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/ST-0/tfrecords', '*val*'))
 
         self.embedding_size = 512
         self.hidden_size = 512
         self.num_layers = 2
+        self.num_units = 512
 
         self.force_teaching_ratio = 0.8
 
