@@ -25,7 +25,7 @@ class ModelConfig(object):
         self.frames_name = 'frames'
         self.label_name = 'labels'
 
-        self.batch_size = 20
+        self.batch_size = 25
 
         self.image_weight = 90
         self.image_height = 140
@@ -34,13 +34,12 @@ class ModelConfig(object):
 
         self.initializer_scale = 0.08
 
-        self.beam_width = 5
+        self.beam_width = 100
 
-        self.train_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/ST-0/tfrecords', '*train*'))
-        self.val_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/ST-0/tfrecords', '*val*'))
+        self.train_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/ST-0/tfrecords/2', '*train*'))
+        self.val_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/ST-0/tfrecords/2', '*val*'))
 
-        self.embedding_size = 512
-        self.hidden_size = 512
+        self.embedding_size = 256
         self.num_layers = 2
         self.num_units = 512
 
@@ -53,11 +52,9 @@ class ModelConfig(object):
 class TrainingConfig(object):
 
     def __init__(self):
-        self.num_examples_per_epoch = 16400
-
-        self.initial_learning_rate = 0.001
+        self.learning_rate = 0.0005
         self.learning_rate_decay = 0.9
-        self.num_epoch_per_decay = 8.0
-        self.weight_decay = 0.0001
+        self.num_iteration_per_decay = 5000
+        self.weight_decay = 0.003
 
-        self.clip_gradients = 1
+        self.max_gradient_norm = 5

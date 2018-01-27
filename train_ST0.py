@@ -12,16 +12,19 @@ from statistic import cer_s
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.flags.DEFINE_string('vocab_path', '/home/zyq/dataset/ST-0/word_counts.txt', 'dictionary path')
+tf.flags.DEFINE_string('vocab_path', '/home/zyq/dataset/ST-0/tfrecords/2/word_counts.txt', 'dictionary path')
 
 tf.flags.DEFINE_integer('NUM_EPOCH', 100, 'epoch次数')
 
 tf.flags.DEFINE_integer('num_eval_examples', 3151, '验证集的数量')
 
-tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/ST-0/tfrecords', 'tfrecords路径')
+tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/ST-0/tfrecords/2', 'tfrecords路径')
 
-tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/attention2018:01:17:19:56:27',
+tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/attention2018:01:23:22:13:09',
                        '最近一次模型保存文件')
+
+tf.flags.DEFINE_string('checkpoint', '/home/zyq/codes/lipreading/attention2018:01:25:09:50:04/ckp39',
+                       '指定模型保存文件')
 
 def main(unused_argv):
 
@@ -30,11 +33,17 @@ def main(unused_argv):
     model_path = tf.train.latest_checkpoint(FLAGS.checkpoint_dir)
 
     vocab = Vocabulary(FLAGS.vocab_path)
+    vocab.id_to_word[-1] = '-1'
 
     model_config = ModelConfig()
     train_config = TrainingConfig()
+    train_config.global_step = tf.Variable(0, trainable=False)
+    train_config.learning_rate = tf.train.exponential_decay(train_config.learning_rate,
+                                                            train_config.global_step,
+                                                            train_config.num_iteration_per_decay,
+                                                            train_config.learning_rate_decay,
+                                                            staircase=True)
     model_config.input_file = FLAGS.input_file
-
 
     train_dataset = build_dataset(model_config.train_tfrecord_list, batch_size=model_config.batch_size)
     iterator = tf.contrib.data.Iterator.from_structure(train_dataset.output_types, train_dataset.output_shapes)
@@ -46,8 +55,9 @@ def main(unused_argv):
     model = Model(model_config=model_config, iterator=iterator, train_config=train_config, word2idx=vocab.word_to_id, sess=tf.Session(config=config))
 
     model.sess.run(tf.global_variables_initializer())
-    saver = tf.train.Saver()
-    saver.restore(model.sess, model_path)
+    saver = tf.train.Saver(max_to_keep=FLAGS.NUM_EPOCH)
+    saver.restore(model.sess, FLAGS.checkpoint)
+    # saver.restore(model.sess, model_path)
 
     summary_writer = model.summary_writer
 
@@ -58,13 +68,20 @@ def main(unused_argv):
         print('[Epoch %d] train begin ' % epoch)
         train_total_loss = 0
         model.sess.run(model.train_init_op)
-        # for i in tqdm(range(int(num_iteration))):
         i = 0
         while True:
             try:
-                loss = model.train()
+            #     sample_id, out = model.sess.run([model.predicting_ids, model.tgt_out])
+            #     for i in range(len(out)):
+            #         print(i, 'label:', ''.join([vocab.id_to_word[k] for k in out[i]]))
+            #         print(i, 'pred:', ''.join([vocab.id_to_word[k] for k in sample_id[i]]))
+                # print([''.join([vocab.id_to_word[k] for k in unpadded_out]) for unpadded_out in sample_id])
+                # print(sample_id.shape)
+                # print(i, sample_id)
+                loss, sample_id = model.train()
                 train_total_loss += loss
                 print('\n   [%d ] Loss: %.4f' % (i, loss))
+                # print([''.join([vocab.id_to_word[k] for k in unpadded_out]) for unpadded_out in sample_id])
                 if count % 100 == 0:
                     summary = model.merge()
                     summary_writer.add_summary(summary, count)
@@ -78,7 +95,7 @@ def main(unused_argv):
         saver.save(model.sess, os.path.join(model_dir, model_name + str(epoch)))
         print('[Epoch %d] train end ' % epoch)
 
-        print('Epoch %d] eval begin' % epoch)
+        print('Epoch [%d] eval begin' % epoch)
         val_total_loss = 0
         model.sess.run(model.val_init_op)
         val_pairs = []
@@ -96,7 +113,7 @@ def main(unused_argv):
                     else:
                         unpadded_out = out_indices[j]
                     idx_1 = np.where(y[j] == 1)[0][0]
-                    unpadded_y = y[j][1:idx_1]
+                    unpadded_y = y[j][:idx_1]
                     predic = ''.join([vocab.id_to_word[k] for k in unpadded_out])
                     label = ''.join([vocab.id_to_word[i] for i in unpadded_y])
                     val_pairs.append((predic, label))
@@ -110,7 +127,7 @@ def main(unused_argv):
                                     tf.Summary.Value(tag="val_loss", simple_value=avg_loss)])
         summary_writer.add_summary(summary, epoch)
         print('Current error rate is : %.4f' % cer)
-        print('Epoch %d] eval end' % epoch)
+        print('Epoch [%d] eval end' % epoch)
         #############################################################
 
     summary_writer.close()

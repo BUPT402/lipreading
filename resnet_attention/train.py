@@ -2,9 +2,8 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 from resnet_attention.model import Lipreading as Model
-from input_ST0 import Vocabulary, build_dataset
+from resnet_attention.input import Vocabulary, build_dataset
 import datetime
-from tqdm import tqdm
 from resnet_attention.configuration import ModelConfig, TrainingConfig
 import numpy as np
 from statistic import cer_s
@@ -18,7 +17,7 @@ tf.flags.DEFINE_integer('NUM_EPOCH', 100, 'epoch次数')
 
 tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/ST-0/tfrecords/2', 'tfrecords路径')
 
-tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/resnet_attention/attention2018:01:22:18:45:31',
+tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/resnet_attention/',
                        '最近一次模型保存文件')
 
 def main(unused_argv):
@@ -56,7 +55,7 @@ def main(unused_argv):
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
-    saver = tf.train.Saver()
+    saver = tf.train.Saver(max_to_keep=FLAGS.NUM_EPOCH)
     # saver.restore(sess, model_path)
 
     summary_writer = tf.summary.FileWriter('logs_resnet/log' +
@@ -98,7 +97,7 @@ def main(unused_argv):
         i = 0
         while True:
             try:
-                out_indices, loss, y = model.eval()
+                out_indices, loss, y = model.eval(sess)
                 val_total_loss += loss
                 print('\n   [%d ] Loss: %.4f' % (i, loss))
                 for j in range(len(y)):

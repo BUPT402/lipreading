@@ -19,13 +19,13 @@ class ModelConfig(object):
         #队列最短长度
         self.shuffle_min_after_dequeue = 100
 
-        self.num_threads = 4
+        self.num_threads = 8
 
         self.label_length_name = 'label_length'
         self.frames_name = 'frames'
         self.label_name = 'labels'
 
-        self.batch_size = 25
+        self.batch_size = 15
 
         self.image_weight = 90
         self.image_height = 140
@@ -34,14 +34,14 @@ class ModelConfig(object):
 
         self.initializer_scale = 0.08
 
-        self.beam_width = 5
+        self.beam_width = 10
 
         self.train_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/ST-0/tfrecords/2', '*train*'))
         self.val_tfrecord_list = glob.glob(os.path.join('/home/zyq/dataset/ST-0/tfrecords/2', '*val*'))
 
         self.embedding_size = 256
         self.num_layers = 2
-        self.num_units = 512
+        self.num_units = 256
 
         self.force_teaching_ratio = 0.8
 
@@ -51,9 +51,11 @@ class ModelConfig(object):
 class TrainingConfig(object):
 
     def __init__(self):
-        self.learning_rate = 0.0003
+        # self.learning_rate = 0.01
+        # self.learning_rate = 0.005
+        self.learning_rate = 0.0025
         self.learning_rate_decay = 0.9
         self.num_iteration_per_decay = 5000
         self.weight_decay = 0.001
 
-        self.max_gradient_norm = 5
+        self.max_gradient_norm = 1

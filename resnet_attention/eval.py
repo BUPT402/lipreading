@@ -1,22 +1,21 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
 from resnet_attention.model import Lipreading as Model
-from input_ST0 import Vocabulary, build_dataset
+from resnet_attention.input import Vocabulary, build_dataset
 import datetime
 from tqdm import tqdm
-from configuration_ST0 import ModelConfig, TrainingConfig
+from resnet_attention.configuration import ModelConfig, TrainingConfig
 import numpy as np
 from statistic import cer_s
 
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.flags.DEFINE_string('vocab_path', '/home/zyq/dataset/ST-0/tfrecords/2/word_counts.txt', 'dictionary path')
+tf.flags.DEFINE_string('vocab_path', '/home/zyq/dataset/ST-0/word_counts.txt', 'dictionary path')
 
 tf.flags.DEFINE_integer('NUM_EPOCH', 100, 'epoch次数')
 
-tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/ST-0/tfrecords/2', 'tfrecords路径')
+tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/ST-0', 'tfrecords路径')
 
 tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/resnet_attention/attention2018:01:23:10:10:07',
                        '最近一次模型保存文件')

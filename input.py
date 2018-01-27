@@ -2,7 +2,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 import tensorflow as tf
 import numpy as np
 import os
@@ -153,7 +152,8 @@ def prefetch_input_data(reader,
 
     else:
         file_lists = glob.glob(os.path.join(data_dir, 'val*'))
-        filename_queue = tf.train.string_input_producer(file_lists, shuffle=True)
+        file_lists = sorted(file_lists)
+        filename_queue = tf.train.string_input_producer(file_lists, shuffle=False)
         _, serialized_example = reader.read(filename_queue)
         train_data, train_label, label_length = parse_sequence_example(serialized_example)
         input_tensors = [train_data, train_label, label_length]
@@ -168,6 +168,51 @@ def prefetch_input_data(reader,
         dynamic_pad=True,
         allow_smaller_final_batch=False
     )
+
+
+def build_dataset(filenames, batch_size, buffer_size=200, repeat=None, shuffle=False):
+    dataset = tf.data.TFRecordDataset(filenames)
+
+    dataset = dataset.map(_parse_function)
+    if shuffle:
+        dataset = dataset.shuffle(buffer_size=buffer_size)
+    dataset = dataset.padded_batch(batch_size, padded_shapes=([250, 90, 140, 3], [None], []))
+    # if repeat != None:
+    dataset = dataset.repeat()
+
+    return dataset
+
+
+def _parse_function(example_proto):
+    context_features = {
+        "label": tf.FixedLenFeature([], dtype=tf.int64)
+    }
+    context_features = {
+        # "video_length": tf.FixedLenFeature([], dtype=tf.int64),
+        "label_length": tf.FixedLenFeature([], dtype=tf.int64)
+    }
+    sequence_features = {
+        "frames": tf.FixedLenSequenceFeature([], dtype=tf.string),
+        "labels": tf.FixedLenSequenceFeature([], dtype=tf.int64)
+    }
+
+    context_parsed, sequence_parsed = tf.parse_single_sequence_example(
+        serialized=example_proto,
+        context_features=context_features,
+        sequence_features=sequence_features
+    )
+    label_length = tf.cast(context_parsed["label_length"], tf.int32)
+
+    frames = sequence_parsed["frames"]
+    labels = sequence_parsed["labels"]
+
+    frames = tf.decode_raw(frames, np.uint8)
+    frames = tf.reshape(frames, (250, 90, 140, 3))
+    frames = tf.image.convert_image_dtype(frames, dtype=tf.float32)
+    frames = tf.subtract(frames, 0.5)
+    frames = tf.multiply(frames, 2.0)
+
+    return frames, labels, label_length
 
 
 def load_video(frames_dir):

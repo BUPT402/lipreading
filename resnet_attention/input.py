@@ -9,6 +9,9 @@ import glob
 import math
 from skimage import io
 
+R_MEAN = 90.1618
+G_MEAN = 62.8704
+B_MEAN = 58.1928
 
 class Vocabulary(object):
     '''vocabulary wrapper'''
@@ -40,9 +43,9 @@ def build_dataset(filenames, batch_size, buffer_size=200, repeat=None, num_threa
     if shuffle:
         dataset = dataset.shuffle(buffer_size=buffer_size)
     dataset = dataset.padded_batch(batch_size, padded_shapes=([77, 90, 140, 3], [None], [None], []),
-                                   padding_values=(0.0, tf.to_int64(1), tf.to_int64(1), 0))
+                                   padding_values=(0.0, 1, 1, 0))
     # if repeat != None:
-    dataset = dataset.repeat()
+    # dataset = dataset.repeat()
 
     return dataset
 
@@ -72,30 +75,27 @@ def _train_parse_function(example_proto):
 
     frames = tf.decode_raw(frames, np.uint8)
     frames = tf.reshape(frames, (77, 90, 140, 3))
-    frames = tf.image.convert_image_dtype(frames, dtype=tf.float32)
+    frames = tf.cast(frames, dtype=tf.float32)
 
+    labels = tf.cast(labels, dtype=tf.int32)
+
+    mean = tf.constant([R_MEAN, G_MEAN, B_MEAN], dtype=tf.float32)
     norm_frames = None
     for i in range(77):
         if norm_frames == None:
-            norm_frames = tf.image.random_flip_left_right(frames[i, :, :, :])
-            norm_frames = tf.image.random_contrast(norm_frames, 0.5, 1.0)
-            norm_frames = tf.expand_dims(norm_frames, 0)
+            frame = frames[i, :, :, :]
+            frame = tf.image.random_flip_left_right(frame)
+            frame = tf.subtract(frame, mean)
+            frame = tf.div(frame, 255)
+            norm_frames = tf.expand_dims(frame, 0)
         else:
-            b = tf.image.flip_left_right(frames[i, :, :, :])
-            b = tf.image.random_contrast(b, 0.5, 1.0)
-            b = tf.expand_dims(b, 0)
-            norm_frames = tf.concat([norm_frames, b], 0)
-        # else:
-        #     if norm_frames == None:
-        #         norm_frames = frames[i, :, :, :]
-        #         norm_frames = tf.expand_dims(norm_frames, 0)
-        #     else:
-        #         b = frames[i, :, :, :]
-        #         b = tf.expand_dims(b, 0)
-        #         norm_frames = tf.concat([norm_frames, b], 0)
+            frame = frames[i, :, :, :]
+            frame = tf.image.random_flip_left_right(frame)
+            frame = tf.subtract(frame, mean)
+            frame = tf.div(frame, 255)
+            frame = tf.expand_dims(frame, 0)
+            norm_frames = tf.concat([norm_frames, frame], 0)
 
-    norm_frames = tf.subtract(frames, 0.5)
-    norm_frames = tf.multiply(norm_frames, 2)
 
     tgt_in = tf.concat(([2], labels), 0)
     tgt_out = tf.concat((labels, [1]), 0)
@@ -127,10 +127,24 @@ def _val_parse_function(example_proto):
 
     frames = tf.decode_raw(frames, np.uint8)
     frames = tf.reshape(frames, (77, 90, 140, 3))
-    frames = tf.image.convert_image_dtype(frames, dtype=tf.float32)
+    frames = tf.cast(frames, dtype=tf.float32)
 
-    norm_frames = tf.subtract(frames, 0.5)
-    norm_frames = tf.multiply(norm_frames, 2)
+    labels = tf.cast(labels, dtype=tf.int32)
+
+    mean = tf.constant([R_MEAN, G_MEAN, B_MEAN], dtype=tf.float32)
+    norm_frames = None
+    for i in range(77):
+        if norm_frames == None:
+            frame = frames[i, :, :, :]
+            frame = tf.subtract(frame, mean)
+            frame = tf.div(frame, 255)
+            norm_frames = tf.expand_dims(frame, 0)
+        else:
+            frame = frames[i, :, :, :]
+            frame = tf.subtract(frame, mean)
+            frame = tf.div(frame, 255)
+            frame = tf.expand_dims(frame, 0)
+            norm_frames = tf.concat([norm_frames, frame], 0)
 
     tgt_in = tf.concat(([2], labels), 0)
     tgt_out = tf.concat((labels, [1]), 0)
