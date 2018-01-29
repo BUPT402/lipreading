@@ -53,9 +53,10 @@ class TrainingConfig(object):
     def __init__(self):
         # self.learning_rate = 0.01
         # self.learning_rate = 0.005
-        self.learning_rate = 0.0025
-        self.learning_rate_decay = 0.9
+        # self.learning_rate = 0.0025
+        self.learning_rate = 0.0001
+        self.learning_rate_decay = 0.5
         self.num_iteration_per_decay = 5000
-        self.weight_decay = 0.001
+        self.weight_decay = 0.0001
 
-        self.max_gradient_norm = 1
+        self.max_gradient_norm = 5

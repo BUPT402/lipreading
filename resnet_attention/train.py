@@ -17,7 +17,7 @@ tf.flags.DEFINE_integer('NUM_EPOCH', 100, 'epoch次数')
 
 tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/ST-0/tfrecords/2', 'tfrecords路径')
 
-tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/resnet_attention/',
+tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/resnet_attention/attention2018:01:27:17:33:01',
                        '最近一次模型保存文件')
 
 def main(unused_argv):
@@ -31,16 +31,16 @@ def main(unused_argv):
 
     model_config = ModelConfig()
     train_config = TrainingConfig()
-    train_config.global_step = tf.Variable(0, trainable=False)
-    train_config.learning_rate = tf.train.exponential_decay(train_config.learning_rate,
-                                                            train_config.global_step,
-                                                            train_config.num_iteration_per_decay,
-                                                            train_config.learning_rate_decay,
-                                                            staircase=True)
+    # train_config.global_step = tf.Variable(0, trainable=False)
+    # train_config.learning_rate = tf.train.exponential_decay(train_config.learning_rate,
+    #                                                         train_config.global_step,
+    #                                                         train_config.num_iteration_per_decay,
+    #                                                         train_config.learning_rate_decay,
+    #                                                         staircase=True)
 
 
     model_config.input_file = FLAGS.input_file
-    train_dataset = build_dataset(model_config.train_tfrecord_list, batch_size=model_config.batch_size)
+    train_dataset = build_dataset(model_config.train_tfrecord_list, batch_size=model_config.batch_size, shuffle=True)
     val_dataset = build_dataset(model_config.val_tfrecord_list, batch_size=model_config.batch_size, is_training=False)
     iterator = tf.contrib.data.Iterator.from_structure(train_dataset.output_types, train_dataset.output_shapes)
     train_init_op = iterator.make_initializer(train_dataset)
@@ -56,7 +56,7 @@ def main(unused_argv):
     sess.run(tf.global_variables_initializer())
 
     saver = tf.train.Saver(max_to_keep=FLAGS.NUM_EPOCH)
-    # saver.restore(sess, model_path)
+    saver.restore(sess, model_path)
 
     summary_writer = tf.summary.FileWriter('logs_resnet/log' +
                                                     datetime.datetime.now().strftime('%Y:%m:%d:%H:%M:%S'),
@@ -69,6 +69,8 @@ def main(unused_argv):
     for epoch in range(FLAGS.NUM_EPOCH):
         print('[Epoch %d] train begin ' % epoch)
         train_total_loss = 0
+        if epoch % 5 == 0 and epoch != 0:
+            model.train_config.learning_rate = model.train_config.learning_rate * train_config.learning_rate_decay
         sess.run(train_init_op)
         i = 0
         while True:

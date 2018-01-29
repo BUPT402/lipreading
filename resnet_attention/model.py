@@ -256,7 +256,7 @@ class Lipreading(object):
     def gru_cell(self, num_units, reuse=False):
         cell = tf.nn.rnn_cell.GRUCell(num_units, reuse=reuse)
         dropout_cell = tf.nn.rnn_cell.DropoutWrapper(cell, self.dropout_prob)
-        return cell
+        return dropout_cell
 
     def build_decode_for_infer(self):
         with tf.variable_scope('decoder', reuse=True) as scope:
@@ -291,8 +291,8 @@ class Lipreading(object):
         self.masks = tf.sequence_mask(self.label_length, tf.reduce_max(self.label_length), dtype=tf.float32)   # [?, ?] 动态的掩码
         self.l2_losses  = [self.train_config.weight_decay * tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'kernel' in v.name]
         self.loss = tf.contrib.seq2seq.sequence_loss(
-            logits=self.training_logits, targets=self.tgt_out, weights=self.masks)
-            # logits=self.training_logits, targets=self.tgt_out, weights=self.masks) + tf.add_n(self.l2_losses)
+            # logits=self.training_logits, targets=self.tgt_out, weights=self.masks)
+            logits=self.training_logits, targets=self.tgt_out, weights=self.masks) + tf.add_n(self.l2_losses)
         tf.summary.scalar('loss', self.loss, collections=['train'])
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             params = tf.trainable_variables()
@@ -303,7 +303,7 @@ class Lipreading(object):
             tf.summary.scalar("grad_norm", grad_norm, collections=['train'])
             tf.summary.scalar("learning_rate", self.train_config.learning_rate, collections=['train'])
             self.train_op = tf.train.AdamOptimizer(self.train_config.learning_rate).apply_gradients(
-                zip(clipped_gradients, params), global_step=self.train_config.global_step)
+                zip(clipped_gradients, params))
 
     def train(self, sess):
         _, loss = sess.run([self.train_op, self.loss], feed_dict={self.is_training: True, self.dropout_prob: 1.0 - self.config.dropout_keep_prob})

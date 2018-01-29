@@ -33,7 +33,7 @@ class Vocabulary(object):
         vocab_to_int = {word: idx for idx, word in int_to_vocab.items()}
         return int_to_vocab, vocab_to_int
 
-def build_dataset(filenames, batch_size, buffer_size=200, repeat=None, num_threads=8, shuffle=False, is_training=True):
+def build_dataset(filenames, batch_size, buffer_size=500, repeat=None, num_threads=8, shuffle=False, is_training=True):
     dataset = tf.data.TFRecordDataset(filenames)
 
     if is_training:
