@@ -4,13 +4,16 @@ import tensorflow as tf
 
 class Lipreading(object):
 
-    def __init__(self, model_config, iterator, train_config, word2idx):
+    def __init__(self, model_config, iterator, train_config, word2idx, mode='train'):
 
         self.config = model_config
         self.train_config = train_config
         self.is_training = tf.placeholder_with_default(True, [])
-        self.dropout_prob = tf.placeholder_with_default(1.0, [])
         self.data_format = "channels_last"
+
+        self.mode = mode
+
+        self.dropout_prob = tf.placeholder_with_default(1.0, [])
 
         self.iterator = iterator
 
@@ -30,8 +33,12 @@ class Lipreading(object):
             self.merged_summary = tf.summary.merge_all('train')
 
     def build_inputs(self):
-        with tf.name_scope('input'), tf.device('/cpu: 0'):
-            self.image_seqs, self.tgt_in, self.tgt_out, self.label_length = self.iterator.get_next()
+        if self.mode != 'train':
+            self.image_seqs = tf.placeholder([1, 77, 140, 90, 3], dtype=tf.float32)
+        else:
+            with tf.name_scope('input'), tf.device('/cpu: 0'):
+                self.image_seqs, self.tgt_in, self.tgt_out, self.label_length = self.iterator.get_next()
+
 
     def build_conv3d(self):
         with tf.variable_scope('conv3d') as scope:
@@ -255,8 +262,8 @@ class Lipreading(object):
 
     def gru_cell(self, num_units, reuse=False):
         cell = tf.nn.rnn_cell.GRUCell(num_units, reuse=reuse)
-        dropout_cell = tf.nn.rnn_cell.DropoutWrapper(cell, self.dropout_prob)
-        return dropout_cell
+        # dropout_cell = tf.nn.rnn_cell.DropoutWrapper(cell, self.dropout_prob)
+        return cell
 
     def build_decode_for_infer(self):
         with tf.variable_scope('decoder', reuse=True) as scope:
@@ -291,8 +298,8 @@ class Lipreading(object):
         self.masks = tf.sequence_mask(self.label_length, tf.reduce_max(self.label_length), dtype=tf.float32)   # [?, ?] 动态的掩码
         self.l2_losses  = [self.train_config.weight_decay * tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'kernel' in v.name]
         self.loss = tf.contrib.seq2seq.sequence_loss(
-            # logits=self.training_logits, targets=self.tgt_out, weights=self.masks)
-            logits=self.training_logits, targets=self.tgt_out, weights=self.masks) + tf.add_n(self.l2_losses)
+            logits=self.training_logits, targets=self.tgt_out, weights=self.masks)
+            # logits=self.training_logits, targets=self.tgt_out, weights=self.masks) + tf.add_n(self.l2_losses)
         tf.summary.scalar('loss', self.loss, collections=['train'])
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             params = tf.trainable_variables()
@@ -306,12 +313,13 @@ class Lipreading(object):
                 zip(clipped_gradients, params))
 
     def train(self, sess):
-        _, loss = sess.run([self.train_op, self.loss], feed_dict={self.is_training: True, self.dropout_prob: 1.0 - self.config.dropout_keep_prob})
+        _, loss = sess.run([self.train_op, self.loss], feed_dict={self.is_training: True,
+                                                                  self.dropout_prob: self.config.dropout_keep_prob})
         return loss
 
     def eval(self, sess):
         pred, loss, label = sess.run([self.predicting_ids, self.loss, self.tgt_out],
-                                          feed_dict={self.is_training: False, self.dropout_prob: 1.0})
+                                          feed_dict={self.is_training: False})
         return pred, loss, label
 
     def merge(self, sess):
