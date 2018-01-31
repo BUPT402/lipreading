@@ -1,7 +1,6 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
-from resnet_attention.model import Lipreading as Model
+from resnet_attention.infer_model import Lipreading as Model
 from resnet_attention.input import Vocabulary
 import datetime
 from resnet_attention.configuration import ModelConfig, TrainingConfig
@@ -19,7 +18,7 @@ tf.flags.DEFINE_string('vocab_path', '/home/zyq/dataset/ST-0/tfrecords/val_1and2
 
 tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/ST-0/tfrecords/val_1and2', 'tfrecords路径')
 
-tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/resnet_attention/attention2018:01:30:21:36:59',
+tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/resnet_attention/accurcy_60',
                        '最近一次模型保存文件')
 
 tf.flags.DEFINE_string('video_path', '', '测试视频的路径')
@@ -42,8 +41,7 @@ def main(unused_argv):
     config.gpu_options.allow_growth = True
     config.intra_op_parallelism_threads = 24
     config.inter_op_parallelism_threads = 24
-    model = Model(model_config=model_config, iterator=None,
-                  train_config=train_config, word2idx=vocab.word_to_id, mode='infer')
+    model = Model(model_config=model_config, word2idx=vocab.word_to_id)
 
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
