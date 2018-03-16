@@ -5,14 +5,6 @@ from __future__ import print_function
 import tensorflow as tf
 import numpy as np
 
-
-# R_MEAN = 93.8335
-# G_MEAN = 71.0166
-# B_MEAN = 64.5890
-R_MEAN = 90.1618
-G_MEAN = 62.8704
-B_MEAN = 58.1928
-
 class Vocabulary(object):
     '''vocabulary wrapper'''
 
@@ -28,8 +20,7 @@ class Vocabulary(object):
                 words.append(line.split(' ')[0])
         words = sorted(words)
 
-        special_words = ['<PAD>', '<EOS>', '<BOS>', '<unkonw>']
-        int_to_vocab = {idx: word for idx, word in enumerate(special_words + words)}
+        int_to_vocab = {idx: word for idx, word in enumerate(words)}
         vocab_to_int = {word: idx for idx, word in int_to_vocab.items()}
         return int_to_vocab, vocab_to_int
 
@@ -42,44 +33,34 @@ def build_dataset(filenames, batch_size, buffer_size=2000, repeat=None, num_thre
         dataset = dataset.map(_val_parse_function, num_parallel_calls=12)
     if shuffle:
         dataset = dataset.shuffle(buffer_size=buffer_size)
-    dataset = dataset.padded_batch(batch_size, padded_shapes=([77, 112, 112, 3], [None], [None], []),
-    # dataset = dataset.padded_batch(batch_size, padded_shapes=([77, 90, 140, 3], [None], [None], []),
-                                   padding_values=(0.0, 1, 1, 0))
-    # if repeat != None:
-    # dataset = dataset.repeat()
+    dataset = dataset.padded_batch(batch_size, padded_shapes=([29, 112, 112, 3], []),
+                                   padding_values=(0.0, 0))
 
     return dataset
 
 
 def _train_parse_function(example_proto):
     context_features = {
-        "label_length": tf.FixedLenFeature([], dtype=tf.int64)
+        "label": tf.FixedLenFeature([], dtype=tf.int64)
     }
     sequence_features = {
         "frames": tf.FixedLenSequenceFeature([], dtype=tf.string),
-        "labels": tf.FixedLenSequenceFeature([], dtype=tf.int64)
     }
-
     context_parsed, sequence_parsed = tf.parse_single_sequence_example(
         serialized=example_proto,
         context_features=context_features,
         sequence_features=sequence_features
     )
-    label_length = tf.cast(context_parsed["label_length"], tf.int32)
+    label = tf.cast(context_parsed["label"], tf.int32)
 
     frames = sequence_parsed["frames"]
-    labels = sequence_parsed["labels"]
 
     frames = tf.decode_raw(frames, np.uint8)
-    frames = tf.reshape(frames, (77, 112, 112, 3))
-    # frames = tf.reshape(frames, (77, 90, 140, 3))
+    frames = tf.reshape(frames, (29, 112, 112, 3))
     frames = tf.image.convert_image_dtype(frames, dtype=tf.float32)
-    # frames = tf.cast(frames, dtype=tf.float32)
-
-    labels = tf.cast(labels, dtype=tf.int32)
 
     norm_frames = None
-    for i in range(77):
+    for i in range(29):
         if norm_frames == None:
             frame = frames[i, :, :, :]
             frame = tf.image.random_flip_left_right(frame)
@@ -93,42 +74,30 @@ def _train_parse_function(example_proto):
     norm_frames = tf.subtract(norm_frames, 0.5)
     norm_frames = tf.multiply(norm_frames, 2)
 
-    tgt_in = tf.concat(([2], labels), 0)
-    tgt_out = tf.concat((labels, [1]), 0)
+    return norm_frames, label
 
-    return norm_frames, tgt_in, tgt_out, tf.size(tgt_out)
 
 def _val_parse_function(example_proto):
     context_features = {
-        "label_length": tf.FixedLenFeature([], dtype=tf.int64)
+        "label": tf.FixedLenFeature([], dtype=tf.int64)
     }
     sequence_features = {
         "frames": tf.FixedLenSequenceFeature([], dtype=tf.string),
-        "labels": tf.FixedLenSequenceFeature([], dtype=tf.int64)
     }
-
     context_parsed, sequence_parsed = tf.parse_single_sequence_example(
         serialized=example_proto,
         context_features=context_features,
         sequence_features=sequence_features
     )
-    label_length = tf.cast(context_parsed["label_length"], tf.int32)
+    label = tf.cast(context_parsed["label"], tf.int32)
 
     frames = sequence_parsed["frames"]
-    labels = sequence_parsed["labels"]
 
     frames = tf.decode_raw(frames, np.uint8)
-    frames = tf.reshape(frames, (77, 112, 112, 3))
-    # frames = tf.reshape(frames, (77, 90, 140, 3))
+    frames = tf.reshape(frames, (29, 112, 112, 3))
     frames = tf.image.convert_image_dtype(frames, dtype=tf.float32)
-    # frames = tf.cast(frames, dtype=tf.float32)
-
-    labels = tf.cast(labels, dtype=tf.int32)
 
     norm_frames = tf.subtract(frames, 0.5)
     norm_frames = tf.multiply(norm_frames, 2)
 
-    tgt_in = tf.concat(([2], labels), 0)
-    tgt_out = tf.concat((labels, [1]), 0)
-
-    return norm_frames, tgt_in, tgt_out, tf.size(tgt_out)
+    return norm_frames, label

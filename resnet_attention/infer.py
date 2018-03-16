@@ -7,6 +7,7 @@ from resnet_attention.configuration import ModelConfig, TrainingConfig
 import numpy as np
 import skvideo.io
 import dlib
+import glob
 
 R_MEAN = 90.1618
 G_MEAN = 62.8704
@@ -21,17 +22,22 @@ tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/ST-0/tfrecords/val_1and2
 tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/resnet_attention/accurcy_60',
                        '最近一次模型保存文件')
 
-tf.flags.DEFINE_string('video_path', '', '测试视频的路径')
+tf.flags.DEFINE_string('video_dir', '/home/lin/2s', '测试视频的路径')
 
 tf.flags.DEFINE_string('predictor_path', '/home/zyq/VIdeo_pipline/bin/shape_predictor_68_face_landmarks.dat', 'dlib predictor')
+
+
 
 def main(unused_argv):
 
     model_dir = 'attention' + datetime.datetime.now().strftime('%Y:%m:%d:%H:%M:%S')
     model_name = 'ckp'
-    model_path = tf.train.latest_checkpoint(FLAGS.checkpoint_dir)
+    # model_path = tf.train.latest_checkpoint(FLAGS.checkpoint_dir)
+    model_path = '/home/zyq/codes/lipreading/resnet_attention/schedule_1.0/ckp1'
 
     vocab = Vocabulary(FLAGS.vocab_path)
+    vocab.id_to_word['-1'] = -1
+    vocab.id_to_word[-1] = -1
 
     model_config = ModelConfig()
     train_config = TrainingConfig()
@@ -52,14 +58,38 @@ def main(unused_argv):
 
     detector = dlib.get_frontal_face_detector()
     predictor = dlib.shape_predictor(FLAGS.predictor_path)
-    video_frames = get_video_frames(FLAGS.video_path)
-    mouth_frames = get_video_frames(video_frames, detector, predictor)
-    mean = np.array([R_MEAN, G_MEAN, B_MEAN])
-    mouth_frames = np.subtract(mouth_frames, mean)
-    mouth_frames = np.divide(mouth_frames, 255)
-    mouth_frames = np.expand_dims(mouth_frames, 0)
-    out_indices = sess.run(model.predicting_ids, feed_dict={model.image_seqs: mouth_frames})
-    print(''.join([vocab.id_to_word[k] for k in out_indices]))
+    video_list = glob.glob(os.path.join(FLAGS.video_dir, '*mp4'))
+    # video_list = ['/home/lin/2s/VID_20171113_092350.mp4']
+    for video in video_list:
+        # try:
+            video_frames = get_video_frames(video)
+            mouth_frames = get_frames_mouth(detector, predictor, video_frames)
+            r_mean = 0
+            g_mean = 0
+            b_mean = 0
+            length = len(mouth_frames)
+            for frame in mouth_frames:
+                r_mean += np.sum(frame[:, :, 0])
+                g_mean += np.sum(frame[:, :, 1])
+                b_mean += np.sum(frame[:, :, 2])
+            mean = [r_mean/(length * 140 * 90), g_mean/(length * 140 * 90), b_mean/(length * 140 * 90)]
+            mouth_frames = np.subtract(mouth_frames, mean)
+            mouth_frames = np.divide(mouth_frames, 255)
+            mouth_frames = np.expand_dims(mouth_frames, 0)
+            print('inputs:', mouth_frames)
+            mouth_frames = np.transpose(mouth_frames, [0, 1, 3, 2, 4])
+            out_indices = sess.run(model.predicting_ids, feed_dict={model.image_seqs: mouth_frames,
+                                                                model.image_length: length})
+            res = out_indices[0]
+            print(video + ' result : ',[vocab.id_to_word[k] for k in res])
+        # except:
+        #     print('error')
+        #     continue
+    # print(''.join([vocab.id_to_word[k] for k in out_indices[0]]))
+    # print(''.join([vocab.id_to_word[k] for k in out_indices[1]]))
+    # print(''.join([vocab.id_to_word[k] for k in out_indices[2]]))
+    # print(''.join([vocab.id_to_word[k] for k in out_indices[3]]))
+    # print(''.join([vocab.id_to_word[k] for k in out_indices[4]]))
 
 
 def get_video_frames(path):
@@ -93,4 +123,5 @@ def get_frames_mouth(detector, predictor, frames):
     return mouth_frames
 
 if __name__ == '__main__':
+    print(11111)
     tf.app.run()
