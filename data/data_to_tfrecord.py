@@ -13,10 +13,10 @@ import sys
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('train_video_dir',
-                           '/home/zyq/video_pipline_data/dataset/ST-1/video_frames/train_set',
+                           '/home/lin/hanyu/dataset_3s_960*540_50',
                            'Traing video directory')
 tf.app.flags.DEFINE_string('val_video_dir',
-                           '/home/zyq/video_pipline_data/dataset/ST-1/video_frames/val_set',
+                           '/home/lin/hanyu/dataset_3s_960*540_50',
                            'Validation video directory')
 
 tf.app.flags.DEFINE_string('train_label_dir',
@@ -44,7 +44,7 @@ tf.flags.DEFINE_string('num_threads', 8,
                        'Numbers of threads to preprocess the videos.')
 
 tf.flags.DEFINE_string('word_counts_output_file',
-                       '/home/zyq/video_pipline_data/test/word_counts.txt',
+                       '/home/zyq/video_pipline_data/resnet_attention/word_counts.txt',
                        'Output vocabulary file of word counts.')
 
 

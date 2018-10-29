@@ -1,32 +1,29 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
-from resnet_attention.infer_model import Lipreading as Model
+from models.infer_model import Lipreading as Model
 from resnet_attention.input import Vocabulary
-import datetime
-from resnet_attention.configuration import ModelConfig, TrainingConfig
+from resnet_attention.configuration import ModelConfig
 from skimage import transform
 import numpy as np
 import skvideo.io
 import skimage
 import dlib
-import glob
-
 
 FLAGS = tf.app.flags.FLAGS
 
 tf.flags.DEFINE_string('vocab_path', '/home/zyq/dataset/ST0_112/tfrecord/word_counts.txt', 'dictionary path')
-
+# tf.flags.DEFINE_string('model_path', '/home/zyq/codes/lipreading/resnet_attention/plus_endtoend/ckp10',
 tf.flags.DEFINE_string('model_path', '/home/zyq/codes/lipreading/resnet_attention/endtoend_schedule_adam1e-4/ckp3',
                        '最近一次模型保存文件')
 
-tf.flags.DEFINE_string('video_dir', '/home/lin/2s', '测试视频的路径')
+tf.flags.DEFINE_string('video_dir', '/home/zyq/test/test', '测试视频的路径')
 
 tf.flags.DEFINE_string('predictor_path', '/home/zyq/VIdeo_pipline/bin/shape_predictor_68_face_landmarks.dat', 'dlib predictor')
 
 
 
 def main(unused_argv):
-
 
     vocab = Vocabulary(FLAGS.vocab_path)
     vocab.id_to_word['-1'] = -1
@@ -42,27 +39,78 @@ def main(unused_argv):
 
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
-    saver = tf.train.Saver()
-    saver.restore(sess, FLAGS.model_path)
+    restore_saver = tf.train.Saver()
+    restore_saver.restore(sess, FLAGS.model_path)
 
+    img_seq = tf.get_default_graph().get_tensor_by_name('img:0')
+    img_length = tf.get_default_graph().get_tensor_by_name('img_len:0')
+    prediction = tf.get_default_graph().get_tensor_by_name('decoder/pre_result/strided_slice:0')
+    # vifeat = tf.get_default_graph().get_tensor_by_name('conv3d/conv1/strided_slice:0')
+    # reinputs = tf.get_default_graph().get_tensor_by_name('resnet/strided_slice:0')
+    # bl_layer1 = tf.get_default_graph().get_tensor_by_name('resnet/strided_slice_1:0')
+    # bl_layer2 = tf.get_default_graph().get_tensor_by_name('resnet/strided_slice_2:0')
+    # bl_layer3 = tf.get_default_graph().get_tensor_by_name('resnet/strided_slice_3:0')
+    # en_out = tf.get_default_graph().get_tensor_by_name('encoder/strided_slice:0')
+    # out_prob = tf.get_default_graph().get_tensor_by_name('decoder/strided_slice_4:0')
+    # out_idx = tf.get_default_graph().get_tensor_by_name('decoder/strided_slice_5:0')
+
+
+    inputs = {
+        "img": tf.saved_model.utils.build_tensor_info(img_seq),
+        "img_length": tf.saved_model.utils.build_tensor_info(img_length)
+    }
+
+    outputs = {
+        "prediction": tf.saved_model.utils.build_tensor_info(prediction),
+        # "vifeat": tf.saved_model.utils.build_tensor_info(vifeat),
+        # "reinputs": tf.saved_model.utils.build_tensor_info(reinputs),
+        # "bl_layer1": tf.saved_model.utils.build_tensor_info(bl_layer1),
+        # "bl_layer2": tf.saved_model.utils.build_tensor_info(bl_layer2),
+        # "bl_layer3": tf.saved_model.utils.build_tensor_info(bl_layer3),
+        # "en_out": tf.saved_model.utils.build_tensor_info(en_out),
+        # "out_prob": tf.saved_model.utils.build_tensor_info(out_prob),
+        # "out_idx": tf.saved_model.utils.build_tensor_info(out_idx)
+    }
+
+    prediction_signature = tf.saved_model.signature_def_utils.build_signature_def(
+        inputs=inputs, outputs=outputs, method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME
+    )
+
+    signature_def_map = {
+        "predict_image": prediction_signature}
+
+    builder = tf.saved_model.builder.SavedModelBuilder('/home/zyq/codes/lipreading/resnet_attention/tmp')
+    builder.add_meta_graph_and_variables(sess, [tf.saved_model.tag_constants.SERVING], signature_def_map=signature_def_map)
+    builder.save()
+
+
+    saver = tf.train.Saver()
+    dense = sess.graph.get_operation_by_name('decoder/dense/kernel')
+    # for op in sess.graph.get_operations():
+    #     if "decode" in op.name:
+    #         print(op.name)
+    # print([op for op in sess.graph.get_operations() if "decode" in op.name])
+    saver.restore(sess, FLAGS.model_path)
+    # saver.save(sess, 'infer_plus/infer')
     print('—*-*-*-*-*-*-*-Model compiled-*-*-*-*-*-*-*-')
 
     detector = dlib.get_frontal_face_detector()
     predictor = dlib.shape_predictor(FLAGS.predictor_path)
-    video_list = glob.glob(os.path.join(FLAGS.video_dir, '*mp4'))
-    for video in video_list:
-        # try:
-            video_frames = get_video_frames(video)
-            mouth_frames = get_frames_mouth(detector, predictor, video_frames)
+    video_list = ['/home/lin/2s/VID_20171113_092350.mp4']
+    with tf.device('/gpu:0'):
+        for video in video_list:
+            # try:
+                video_frames = get_video_frames(video)
+                mouth_frames = get_frames_mouth(detector, predictor, video_frames)
 
-            length = len(mouth_frames)
-            mouth_frames = np.subtract(mouth_frames, 0.5)
-            mouth_frames = np.multiply(mouth_frames, 2)
-            mouth_frames = np.expand_dims(mouth_frames, 0)
-            out_indices = sess.run(model.predicting_ids, feed_dict={model.image_seqs: mouth_frames,
-                                                                    model.image_length: length})
-            res = out_indices[0]
-            print(video + ' result : ',[vocab.id_to_word[k] for k in res])
+                length = len(mouth_frames)
+                mouth_frames = np.subtract(mouth_frames, 0.5)
+                mouth_frames = np.multiply(mouth_frames, 2)
+                mouth_frames = np.expand_dims(mouth_frames, 0)
+                out_indices = sess.run(model.predicting_ids, feed_dict={model.image_seqs: mouth_frames,
+                                                                        model.image_length: length})
+                res = out_indices[0]
+                print(video + ' result : ', [vocab.id_to_word[k] for k in res])
 
 
 def get_video_frames(path):
@@ -103,5 +151,4 @@ def get_frames_mouth(detector, predictor, frames):
     return mouth_frames
 
 if __name__ == '__main__':
-    print(11111)
     tf.app.run()

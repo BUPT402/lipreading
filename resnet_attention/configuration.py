@@ -25,10 +25,10 @@ class ModelConfig(object):
         self.frames_name = 'frames'
         self.label_name = 'labels'
 
-        self.batch_size = 10
+        self.batch_size = 30
 
-        self.image_weight = 90
-        self.image_height = 140
+        self.image_weight = 112
+        self.image_height = 112
         self.image_depth = 77
         self.image_channel = 3
 
@@ -43,7 +43,7 @@ class ModelConfig(object):
         self.num_layers = 2
         self.num_units = 256
 
-        self.force_teaching_ratio = 1.0
+        self.force_teaching_ratio = 0.2
 
         self.dropout_keep_prob = 1.0
 

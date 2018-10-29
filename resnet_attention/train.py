@@ -1,7 +1,7 @@
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import tensorflow as tf
-from resnet_attention.model import Lipreading as Model
+from resnet_attention.without_encoder_model import Lipreading as Model
 from resnet_attention.input import Vocabulary, build_dataset
 import datetime
 from resnet_attention.configuration import ModelConfig, TrainingConfig
@@ -20,17 +20,16 @@ tf.flags.DEFINE_string('input_file', '/home/zyq/dataset/ST0_112/tfrecord', 'tfre
 tf.flags.DEFINE_string('checkpoint_dir', '/home/zyq/codes/lipreading/resnet_attention/image112_drop0.5_noregu_schedule0.5_2',
                        '最近一次模型保存文件')
 
-tf.flags.DEFINE_string('save_model_path', 'logs_resnet/endtoend_schedule_adam1e-4',
+tf.flags.DEFINE_string('log_path', 'logs_resnet/without_encoder_freeze',
                        '保存log的地址')
 
 
 def main(unused_argv):
 
-    model_dir = 'endtoend_schedule_adam1e-4'
+    # model_dir = 'plus_freezeConv_adam1e-4'
+    model_dir = 'without_encoder_freeze'
     model_name = 'ckp'
-    model_path = '/home/zyq/codes/lipreading/resnet_attention/freezeConv_adam1e-4/ckp13'
-    # model_path = tf.train.latest_checkpoint(FLAGS.checkpoint_dir)
-
+    model_path = '/home/zyq/codes/lipreading/resnet_attention/infer_model/infer'
     vocab = Vocabulary(FLAGS.vocab_path)
     vocab.id_to_word[-1] = '-1'
 
@@ -55,19 +54,19 @@ def main(unused_argv):
     sess.run(tf.global_variables_initializer())
     sess.run(tf.local_variables_initializer())
 
-    var_list = [param for param in tf.trainable_variables()]
-    for v in tf.global_variables():
-        # if 'resnet' in v.name or 'conv3d' in v.name:
-        #     var_list.append(v)
-        if v.name == 'decoder/decode_embedding':
+    var_list = []
+    for v in tf.trainable_variables():
+        if 'resnet' in v.name or 'conv3d' in v.name:
             var_list.append(v)
-    print('length of ckpt', len(var_list))
+        # if v.name == 'decoder/decode_embedding':
+        #     var_list.append(v)
     restore_saver = tf.train.Saver(var_list=tf.trainable_variables(), max_to_keep=20)
     restore_saver.restore(sess, model_path)
 
     saver = tf.train.Saver(max_to_keep=20)
+    # saver.restore(sess, model_path)
 
-    summary_writer = tf.summary.FileWriter(FLAGS.save_model_path, graph=sess.graph)
+    summary_writer = tf.summary.FileWriter(FLAGS.log_path, graph=sess.graph)
 
     print('—*-*-*-*-*-*-*-Model compiled-*-*-*-*-*-*-*-')
 

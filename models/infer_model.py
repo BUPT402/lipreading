@@ -3,16 +3,14 @@ import tensorflow as tf
 
 
 class Lipreading(object):
-
     def __init__(self, model_config, word2idx, batch_size=1):
 
         self.config = model_config
         self.data_format = "channels_last"
         self.batch_size = batch_size
         self.word2idx = word2idx
-        self.image_length = tf.placeholder_with_default(77, [])
+        # self.image_length = tf.placeholder_with_default(77, [], name='img_len')
         self.build_graph()
-
 
     def build_graph(self):
         self.build_inputs()
@@ -22,10 +20,9 @@ class Lipreading(object):
         self.build_decode_for_infer()
 
     def build_inputs(self):
-        self.image_seqs = tf.placeholder(shape=[None, None, 112, 112, 3], dtype=tf.float32)
-        self.image_depth = tf.placeholder(shape=[], dtype=tf.int32)
-        self.label_length = [10]
-
+        self.image_seqs = tf.placeholder(shape=[None, None, 112, 112, 3], dtype=tf.float32, name='img')
+        self.image_length = tf.placeholder(shape=[], dtype=tf.int32, name='img_len')
+        self.label_length = [30]
 
     def build_conv3d(self):
         with tf.variable_scope('conv3d') as scope:
@@ -35,6 +32,7 @@ class Lipreading(object):
                 batch1 = tf.layers.batch_normalization(conv1, axis=-1, training=False, name='bn1')
                 relu1 = tf.nn.relu(batch1, name='relu1')
                 self.video_feature = relu1
+                video_vis = relu1[:, :, :, :, 1:2]
                 tf.summary.histogram("video_feature", self.video_feature, collections=['train'])
 
     def build_resnet(self):
@@ -148,6 +146,7 @@ class Lipreading(object):
             inputs = conv2d_fixed_padding(
                 inputs=res_input, filters=64, kernel_size=3, strides=1,
                 data_format=data_format)
+            inputs_vis = inputs[:, :, :, 2]
             inputs = tf.identity(inputs, 'initial_conv')
             inputs = tf.layers.max_pooling2d(
                 inputs=inputs, pool_size=3, strides=2, padding='SAME',
@@ -157,14 +156,17 @@ class Lipreading(object):
                 inputs=inputs, filters=64, block_fn=block_fn, blocks=3,
                 strides=1, is_training=False, name='block_layer1',
                 data_format=data_format)
+            inputs_vis = inputs[:, :, :, 2]
             inputs = block_layer(
                 inputs=inputs, filters=128, block_fn=block_fn, blocks=4,
                 strides=2, is_training=False, name='block_layer2',
                 data_format=data_format)
+            inputs_vis = inputs[:, :, :, 2]
             inputs = block_layer(
                 inputs=inputs, filters=256, block_fn=block_fn, blocks=6,
                 strides=2, is_training=False, name='block_layer3',
                 data_format=data_format)
+            inputs_vis = inputs[:, :, :, 2]
             inputs = block_layer(
                 inputs=inputs, filters=512, block_fn=block_fn, blocks=3,
                 strides=2, is_training=False, name='block_layer4',
@@ -176,19 +178,23 @@ class Lipreading(object):
                 data_format=data_format)
             inputs = tf.identity(inputs, 'final_avg_pool')
             self.res_out = tf.reshape(inputs, [-1, self.image_length, 512])
+
             tf.summary.histogram("res_out", self.res_out, collections=['train'])
 
     def build_encoder(self):
         with tf.variable_scope("encoder") as scope:
             encoder_outputs, bi_encoder_state = tf.nn.bidirectional_dynamic_rnn(
-                cell_fw=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell(self.config.num_units) for _ in range(self.config.num_layers)]),
-                cell_bw=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell(self.config.num_units) for _ in range(self.config.num_layers)]),
+                cell_fw=tf.nn.rnn_cell.MultiRNNCell(
+                    [self.gru_cell(self.config.num_units) for _ in range(self.config.num_layers)]),
+                cell_bw=tf.nn.rnn_cell.MultiRNNCell(
+                    [self.gru_cell(self.config.num_units) for _ in range(self.config.num_layers)]),
                 inputs=self.res_out, dtype=tf.float32, scope=scope)
             encoder_state = []
             for i in range(self.config.num_layers):
                 encoder_state.append(tf.concat([bi_encoder_state[0][i], bi_encoder_state[1][i]], axis=-1))
             self.encoder_state = tuple(encoder_state)
             self.encoder_out = tf.concat(encoder_outputs, -1)
+            encoder_vis = self.encoder_out[:, :, 100:150]
             tf.summary.histogram('encoder_out', self.encoder_out, collections=['train'])
             tf.summary.histogram('encoder_state', self.encoder_state, collections=['train'])
 
@@ -207,23 +213,28 @@ class Lipreading(object):
             attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=self.config.num_units * 2,
                                                                     memory=encoder_out_tiled)
             decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-                cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell(self.config.num_units * 2, reuse=tf.AUTO_REUSE) for _ in range(self.config.num_layers)]),
+                cell=tf.nn.rnn_cell.MultiRNNCell([self.gru_cell(self.config.num_units * 2, reuse=tf.AUTO_REUSE) for _ in
+                                                  range(self.config.num_layers)]),
                 attention_mechanism=attention_mechanism, attention_layer_size=self.config.num_units * 2)
-
             predicting_decoder = tf.contrib.seq2seq.BeamSearchDecoder(
                 cell=decoder_cell, embedding=tf.get_variable('decode_embedding'),
-                start_tokens=tf.tile(tf.constant([self.word2idx['<BOS>']], dtype=tf.int32), [1]),
-                end_token=self.word2idx['<EOS>'],
+                start_tokens=tf.tile(tf.constant([2], dtype=tf.int32), [1]),
+                end_token=1,
                 initial_state=decoder_cell.zero_state(self.batch_size * self.config.beam_width, tf.float32).clone(
                     cell_state=encoder_state_tiled),
                 beam_width=self.config.beam_width,
                 output_layer=core_layers.Dense(len(self.word2idx), use_bias=False, _reuse=tf.AUTO_REUSE),
                 length_penalty_weight=0.0)
-            self.predicting_decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
+            self.predicting_decoder_output, final_state, _ = tf.contrib.seq2seq.dynamic_decode(
                 decoder=predicting_decoder,
                 impute_finished=False,
                 maximum_iterations=2 * tf.reduce_max(self.label_length),
                 scope=scope)
+            score_vis = self.predicting_decoder_output.beam_search_decoder_output.scores
+            score_vis = score_vis[:, :, 0:3]
+            word_idx = self.predicting_decoder_output.beam_search_decoder_output.predicted_ids
+            word_idx = word_idx[:, :, 0:3]
+
             with tf.variable_scope('pre_result'):
                 self.predicting_ids = self.predicting_decoder_output.predicted_ids[:, :, 0]
 
